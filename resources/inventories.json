@@ -1,0 +1,27 @@
+{
+	"minecraft:container": {
+		"extends": "minecraft:chest"
+	},
+	"minecraft:chest": {
+		"variables": ["rows", "container_inventory"],
+		"elements": [
+			{"type": "image", "path": "textures/gui/container/generic_54.png", "at": [0, 0], "slice": [0, "#x_size", 0, "#rows * 18 + 17"]},
+			{"type": "image", "path": "textures/gui/container/generic_54.png", "at": [0, "#rows * 18 + 17"], "slice": [0, "#x_size", 126, 96]},
+			{"type": "bulk_slots", "ref": "#container_inventory", "size": [9, "#rows"], },
+			{"type": "text", "value": "#container_name", "at": [8, 6]},
+			{"type": "text", "value": "#player_inventory_name", "at": [8, "#rows * 18 + 20"]}
+		]
+	},
+	"minecraft:crafting_table": {},
+	"minecraft:furnace": {},
+	"minecraft:dispenser": {},
+	"minecraft:enchanting_table": {},
+	"minecraft:brewing_stand": {},
+	"minecraft:villager": {},
+	"minecraft:beacon": {},
+	"minecraft:anvil": {},
+	"minecraft:hopper": {},
+	"minecraft:dropper": {},
+	"minecraft:shulker_box": {},
+	"EntityHorse": {}
+}

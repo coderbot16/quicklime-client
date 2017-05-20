@@ -1,0 +1,70 @@
+{
+	"scene": "minecraft:main_menu",
+	"elements": {
+		"options": {
+			"index": 0,
+			"text": {"translate": "menu.options"},
+			"at": {"x": "#scaled_width/2 - 100", "y": "#scaled_height/4 + 132"},
+			"size": {"width": "98", "height": "20"},
+			"commands": ["gui_push_scene minecraft:options"]
+		},
+		"quit": {
+			"index": 4,
+			"text": {"translate": "menu.quit"},
+			"at": {"x": "#scaled_width/2 + 2", "y: #scaled_height/4 + 132"},
+			"size": {"width": "98", "height": "20"},
+			"commands": ["quit force"]
+		},
+		"language_selection": {
+			"index": 5,
+			"text": {},
+			"at": {"x": "#scaled_width/2 - 124", "y": "#scaled_height/4 + 132"},
+			"size": {"width": "20", "height": "20"},
+			"textures": { 
+				"default": {"atlas": "minecraft:textures/gui/widgets.png", "slice": [0, 20, 106, 126]},
+				"hovered": {"atlas": "minecraft:textures/gui/widgets.png", "slice": [0, 20, 126, 146]},
+			},
+			"commands": ["gui_push_scene minecraft:language_selection"]
+		},
+		"singleplayer": {
+			"index": 1,
+			"text": {"translate": "menu.singleplayer"},
+			"at": {"x": "#scaled_width/2 - 100", "y": "#scaled_height/4 + 48"},
+			"size": { "width": "200", "height": "20" },
+			"commands": ["gui_push_scene minecraft:singleplayer"]
+		},
+		"multiplayer": {
+			"index": 2,
+			"text": {"translate": "menu.multiplayer"},
+			"at": {"x": "#scaled_width/2 - 100", "y": "#scaled_height/4 + 72"},
+			"size": { "width": "200", "height": "20" },
+			"commands": ["gui_push_scene minecraft:multiplayer"]
+		},
+		"realms": {
+			"index": 14,
+			"text": {"translate": "menu.online"},
+			"at": {"x": "#scaled_width/2 - 100", "y": "#scaled_height/4 + 96"},
+			"size": { "width": "200", "height": "20" },
+			"commands": ["gui_push_scene minecraft:realms"]
+		},
+		"demo_play": {
+			"index": 11,
+			"text": {"translate": "menu.playdemo"},
+			"at": {"x": "#scaled_width/2 - 100", "y": "#scaled_height/4 + 48"},
+			"size": { "width": "200", "height": "20" },
+			"hide": true,
+			"commands": ["log_error demo mode not supported"]
+		},
+		"demo_reset": {
+			"index": 12,
+			"text": {"translate": "menu.resetdemo"},
+			"at": {"x": "#scaled_width/2 - 100", "y": "#scaled_height/4 + 72"},
+			"size": { "width": "200", "height": "20" },
+			"hide": true,
+			"default_texture": "disabled",
+			"commands": ["log_error demo mode not supported"]
+		},
+		"__comment": "TODO: #13 URL",
+		"TODO": ["Panorama", "Title", "Splash", "Version (Left)", "Copyright (Right)", "OGL Warning"]
+	}
+}
