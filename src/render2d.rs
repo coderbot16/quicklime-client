@@ -8,10 +8,10 @@ pub struct Vertex2D {
 }
 
 pub struct Rect {
-	min: Vertex2D,
-	max: Vertex2D,
-	plus_x_color: Color,
-	plus_y_color: Color
+	pub min: Vertex2D,
+	pub max: Vertex2D,
+	pub plus_x_color: Color,
+	pub plus_y_color: Color
 }
 
 impl Rect {

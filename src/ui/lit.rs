@@ -1,6 +1,8 @@
 use std::fmt::{self, Formatter, Display};
 use std::str::FromStr;
 use std::num::{ParseIntError, ParseFloatError};
+use serde::de::{Deserialize, Deserializer, Visitor, Error};
+use serde::ser::{Serialize, Serializer};
 
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Lit {
@@ -23,6 +25,36 @@ impl Lit {
 	pub fn part(&self) -> f32 {
 		self.part
 	}
+	
+	pub fn to_part(&self, scale: f32) -> f32 {
+		self.part + (self.px as f32)*scale
+	}
+}
+
+impl<'de> Deserialize<'de> for Lit {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+		struct LitVisitor;
+		impl<'de> Visitor<'de> for LitVisitor {
+			type Value = Lit;
+			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+		        formatter.write_str("a string literal with the format \"X[.Z] [+ Ypx]\"")
+		    }
+			
+			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: Error {
+				v.parse::<Lit>().map_err(|e| E::custom(format!("malformed literal: {}", v)))
+			}
+		}
+		
+		deserializer.deserialize_str(LitVisitor)
+	}
+}
+
+impl Serialize for Lit {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where S: Serializer
+    {
+        serializer.serialize_str(&format!("{}", self))
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]

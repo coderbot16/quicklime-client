@@ -19,6 +19,9 @@ use std::fs::File;
 use input::Screen;
 use glutin::Event;
 use std::io::BufReader;
+use ui::{Scene, State, Element, Kind, Coloring};
+use ui::lit::Lit;
+mod resource;
 
 #[macro_use]
 extern crate gfx;
@@ -259,7 +262,7 @@ fn main() {
 		device.cleanup();
 	}*/
 	
-	use text::flat::{Component, ChatBuf, Kind, Mode};
+	/*use text::flat::{Component, ChatBuf, Kind, Mode};
 	use text::style::Style;
 	
 	let mut buf = ChatBuf::new();
@@ -287,5 +290,24 @@ fn main() {
 	println!("{:?}", redstone_creations);
 	for component in redstone_creations.components() {
 		println!("{:?}", component);
-	}
+	}*/
+	
+	let mut scene = Scene::new();
+	let state = State {
+		name: "default".to_owned(),
+		center: (Lit::new(0.0, 0), Lit::new(0.0, 0)),
+		extents: (Lit::new(0.5, 0), Lit::new(0.5, 0)),
+		color: Coloring::Solid([1.0, 0.0, 1.0]),
+		kind: Kind::Nodraw
+	};
+	
+	let element = Element {
+		current: None,
+		default: state,
+		states: vec![]
+	};
+	
+	scene.elements.insert("test".to_owned(), element);
+	
+	println!("{}", serde_json::to_string(&scene).unwrap());
 }
