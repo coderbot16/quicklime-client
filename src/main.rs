@@ -292,7 +292,7 @@ fn main() {
 		println!("{:?}", component);
 	}*/
 	
-	let mut scene = Scene::new();
+	/*let mut scene = Scene::new();
 	let state = State {
 		name: "default".to_owned(),
 		center: (Lit::new(0.0, 0), Lit::new(0.0, 0)),
@@ -309,5 +309,7 @@ fn main() {
 	
 	scene.elements.insert("test".to_owned(), element);
 	
-	println!("{}", serde_json::to_string(&scene).unwrap());
+	println!("{}", serde_json::to_string(&scene).unwrap());*/
+	
+	
 }
