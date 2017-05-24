@@ -56,7 +56,9 @@ impl ChatBuf {
 	
 	// TODO: from_formatted[_lossy]
 	
-	pub fn from_formatted(s: &str) -> Self {
+	pub fn from_formatted(s: &str, ampersand: bool) -> Self {
+		let marker = if ampersand {'&'} else {'§'};
+		
 		// TODO: Better size calculation
 		let mut buf = Self::new();
 		
@@ -84,7 +86,7 @@ impl ChatBuf {
 						style.color = Color::Palette(color);
 					}
 				},
-				'§' => expect_code = true,
+				marker => expect_code = true,
 				char => {
 					buf.string.push(char);
 					current_len += 1;
