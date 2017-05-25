@@ -1,4 +1,40 @@
 use text::formatter::{Kind, FormatCommand, Index};
+use std::collections::HashMap;
+
+struct Node {
+	branch: Option<HashMap<String, Node>>,
+	leaf: Option<Compiled>
+}
+
+impl Node {
+	fn leaf(compiled: Compiled) -> Self {
+		Node { branch: None, leaf: Some(compiled) }
+	}
+	
+	fn branch(map: HashMap<String, Node>) -> Self {
+		Node { branch: Some(map), leaf: None}
+	}
+	
+	fn set_leaf(&mut self, compiled: Compiled) {
+		// TODO: Use entry APIs when they are stabilized.
+		if let Some(ref mut current) = self.leaf {
+			*current = compiled
+		} else {
+			self.leaf = Some(compiled)
+		}
+	}
+	
+	fn insert(&mut self, key: &str, node: Node) {
+		// TODO: Use entry APIs when they are stabilized.
+		if let Some(ref mut br) = self.branch {
+			br.insert(key.to_owned(), node);
+		} else {
+			let mut map = HashMap::new();
+			map.insert(key.to_owned(), node);
+			self.branch = Some(map);
+		}
+	}
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Error {
@@ -112,4 +148,5 @@ fn test_parse_lines() {
 	assert_eq!(Ok((" translation.test.none", "Hello, world! ")), parse_line(" translation.test.none=Hello, world! "));
 	assert_eq!(Err(Error::Comment), parse_line("# This is an interesting comment."));
 	assert_eq!(Err(Error::NoValue), parse_line("I'm a strong, independent key and ain't no value gonna mess with me."));
+	assert_eq!(Err(Error::NoValue), parse_line(""));
 }

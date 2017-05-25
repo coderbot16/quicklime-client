@@ -21,7 +21,7 @@ use glutin::Event;
 use std::io::BufReader;
 use ui::{Scene, State, Element, Kind, Coloring};
 use ui::lit::Lit;
-mod resource;
+//mod resource;
 
 #[macro_use]
 extern crate gfx;
