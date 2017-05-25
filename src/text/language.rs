@@ -1,3 +1,5 @@
+use text::formatter::{Kind, FormatCommand, Index};
+
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum Error {
 	Comment,
@@ -21,7 +23,87 @@ fn parse_line(line: &str) -> Result<(&str, &str), Error> {
 	))
 }
 
-// TODO: Format strings
+struct SimpleFormatCmd {
+	string_start: usize,
+	arg_index: usize
+}
+
+struct CmdProcessor {
+	head: usize,
+	last: usize
+}
+
+impl CmdProcessor {
+	fn new() -> Self {
+		CmdProcessor {
+			head: 0,
+			last: 0
+		}
+	}
+	
+	fn process(&mut self, string_start: usize, cmd: FormatCommand) -> Option<SimpleFormatCmd> {
+		if cmd.flags.any() | cmd.width.is_some() | cmd.precision.is_some() | (cmd.kind != Kind::String && cmd.kind != Kind::Decimal && cmd.kind != Kind::Float) {
+			None
+		} else {
+			Some(self.process_lossy(string_start, cmd))
+		}		
+	}
+	
+	fn process_lossy(&mut self, string_start: usize, cmd: FormatCommand) -> SimpleFormatCmd {
+		let current_idx = match cmd.index {
+			Index::Previous => self.last,
+			Index::Exact(idx) => idx,
+			Index::Next => self.head
+		};
+		
+		if cmd.index == Index::Next {
+			self.head += 1;
+		}
+		
+		self.last = current_idx;
+		
+		SimpleFormatCmd {
+				string_start: string_start,
+				arg_index: current_idx
+		}	
+	}
+}
+
+struct Compiled {
+	string: String,
+	commands: Vec<SimpleFormatCmd>
+}
+
+impl Compiled {
+	fn compile(source: &str) -> Option<Self> {
+		let mut processor = CmdProcessor::new();
+		let mut compiled = Compiled { string: String::new(), commands: Vec::new() };
+		
+		let mut next = 0;
+		for (index, c) in source.char_indices() {
+			if index < next { continue };
+			
+			match c {
+				'%' => {
+					if let Ok((size, cmd)) = FormatCommand::parse(&source[index..]) {
+						next = index + size;
+						
+						if let Some(cmd) = processor.process(compiled.string.len(), cmd) {
+							compiled.commands.push(cmd)
+						} else {
+							return None;
+						}
+					} else {
+						return None;
+					}
+				},
+				c => compiled.string.push(c)
+			}
+		}
+		
+		Some(compiled)
+	}
+}
 
 #[test]
 fn test_parse_lines() {

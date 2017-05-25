@@ -2,7 +2,7 @@ use std::str::FromStr;
 use std::num::ParseIntError;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Kind {
+pub enum Kind {
 	Bool,
 	HexHashCode,
 	String,
@@ -97,7 +97,7 @@ impl Kind {
 
 /// Unless otherwise specified, each of these is padded
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum TimeKind {
+pub enum TimeKind {
 	/// Hour of the 24 hour clock. Padded with zeros if neccesary (00 - 23)
 	Hour24,
 	/// Hour of the 12 hour clock. Padded with zeros if neccesary (01 - 12)
@@ -158,7 +158,7 @@ impl TimeKind {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Flag {
+pub enum Flag {
 	LeftJustify,
 	Alternate,
 	Plus,
@@ -213,17 +213,17 @@ impl Flag {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Index {
+pub enum Index {
 	Next,
 	Exact(usize),
 	Previous
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-struct Flags(u8);
+pub struct Flags(u8);
 
 impl Flags {
-	fn handle(&mut self, flag: Flag)  {
+	pub fn handle(&mut self, flag: Flag)  {
 		self.0 |= flag.bit()
 	}
 	
@@ -261,17 +261,17 @@ impl Flags {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-struct FormatCommand {
-	index: Index,
-	flags: Flags,
-	width: Option<usize>,
-	precision: Option<usize>,
-	kind: Kind,
-	upper: bool
+pub struct FormatCommand {
+	pub index: Index,
+	pub flags: Flags,
+	pub width: Option<usize>,
+	pub precision: Option<usize>,
+	pub kind: Kind,
+	pub upper: bool
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-enum ParseFormatError {
+pub enum ParseFormatError {
 	NotFormat,
 	ParseInt(ParseIntError),
 	ExpectedPrecision,
@@ -281,7 +281,7 @@ enum ParseFormatError {
 impl FormatCommand {
 	/// Parses a format command of the form %[argument_index$][flags][width][.precision]conversion[date_conversion] into an object.
 	/// Returns the amount of bytes consumed from the buffer along with the parsed format command.
-	fn parse(s: &str) -> Result<(usize, Self), ParseFormatError> {
+	pub fn parse(s: &str) -> Result<(usize, Self), ParseFormatError> {
 		// Record the starting length of the string, so that the length of the format code can be found later.
 		let start_len = s.len();
 		
