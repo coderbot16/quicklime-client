@@ -1,4 +1,4 @@
-use text::formatter::{Kind, FormatCommand, Index};
+use text::formatter::{Kind, FormatCommand, Index, ParseFormatError};
 use directory;
 use std::fmt::{self, Formatter, Display};
 
@@ -19,11 +19,8 @@ pub fn parse_line(line: &str) -> Result<(&str, &str), Error> {
 	
 	let mut items = line.split("=");
 	
-	// TODO: Formatting
-	// TODO: Formatting: Any Decimal or Float format code is replaced with a format code equivalent to %1s
-	
 	Ok((
-		items.next().expect("A split iterator should yield at least one element!"), 
+		items.next().expect("A split iterator should yield at least one element! Go home Rust, you're drunk."), 
 		try!(items.next().ok_or(Error::NoValue))
 	))
 }
@@ -31,13 +28,30 @@ pub fn parse_line(line: &str) -> Result<(&str, &str), Error> {
 #[derive(Debug)]
 struct SimpleFormatCmd {
 	string_start: usize,
-	arg_index: usize
+	arg_index: usize,
+	upper: bool
 }
 
 impl Display for SimpleFormatCmd {
 	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-		write!(f, "{{{}}}", self.arg_index)
+		if self.upper {
+			write!(f, "{{{}::to_uppercase}}", self.arg_index)
+		} else {
+			write!(f, "{{{}}}", self.arg_index)
+		}
 	}
+}
+
+// TODO: For specific formatting codes, we will want to make a Transformation system that transforms incoming primitives into strings.
+// TODO: This should support JSON values, as that is what is can be used in `with`.
+
+#[derive(Debug)]
+pub enum ProcessError {
+	UnsupportedFlags,
+	UnsupportedWidth,
+	UnsupportedPrecision,
+	UnsupportedKind,
+	Parse(ParseFormatError)
 }
 
 struct CmdProcessor {
@@ -53,11 +67,22 @@ impl CmdProcessor {
 		}
 	}
 	
-	fn process(&mut self, string_start: usize, cmd: FormatCommand) -> Option<SimpleFormatCmd> {
-		if cmd.flags.any() | cmd.width.is_some() | cmd.precision.is_some() | (cmd.kind != Kind::String && cmd.kind != Kind::Decimal && cmd.kind != Kind::Float) || cmd.upper {
-			None
+	fn process(&mut self, string_start: usize, cmd: FormatCommand) -> Result<SimpleFormatCmd, ProcessError> {
+		if cmd.kind == Kind::Decimal || cmd.kind == Kind::Float {
+			// Plain decimal/float format codes are replaced with string format codes, for some reason. But why?
+			self.last = 1;
+			Ok(SimpleFormatCmd { string_start: string_start, arg_index: 0, upper: false })
+			
+		} else if cmd.flags.any() {
+			Err(ProcessError::UnsupportedFlags)
+		} else if cmd.width.is_some() {
+			Err(ProcessError::UnsupportedWidth)
+		} else if cmd.precision.is_some() {
+			Err(ProcessError::UnsupportedPrecision)
+		} else if cmd.kind != Kind::String {
+			Err(ProcessError::UnsupportedKind)
 		} else {
-			Some(self.process_lossy(string_start, cmd))
+			Ok(self.process_lossy(string_start, cmd))
 		}		
 	}
 	
@@ -76,7 +101,8 @@ impl CmdProcessor {
 		
 		SimpleFormatCmd {
 				string_start: string_start,
-				arg_index: current_idx - 1 // Format string indices count from 1, but array indices count from 0.
+				arg_index: current_idx - 1, // Format string indices count from 1, but array indices count from 0.
+				upper: cmd.upper
 		}	
 	}
 }
@@ -88,7 +114,7 @@ pub struct Compiled {
 }
 
 impl Compiled {
-	pub fn compile(source: &str) -> Option<Self> {
+	pub fn compile(source: &str) -> Result<Self, ProcessError> {
 		let mut processor = CmdProcessor::new();
 		let mut compiled = Compiled { string: String::new(), commands: Vec::new() };
 		
@@ -99,29 +125,23 @@ impl Compiled {
 			
 			match c {
 				'%' => {
-					if let Ok((size, cmd)) = FormatCommand::parse(&source[index..]) {
-						next = index + size;
-						
-						if cmd.kind == Kind::Newline {
-							compiled.string.push('\n');
-						} else if cmd.kind == Kind::Percent {
-							compiled.string.push('%');
-						} else {
-							if let Some(cmd) = processor.process(compiled.string.len(), cmd) {
-								compiled.commands.push(cmd)
-							} else {
-								return None;
-							}
-						}
+					let (size, cmd) = try!(FormatCommand::parse(&source[index..]).map_err(ProcessError::Parse)); 
+					
+					next = index + size;
+					
+					if cmd.kind == Kind::Newline {
+						compiled.string.push('\n');
+					} else if cmd.kind == Kind::Percent {
+						compiled.string.push('%');
 					} else {
-						return None;
+						compiled.commands.push(try!(processor.process(compiled.string.len(), cmd)));
 					}
 				},
 				c => compiled.string.push(c)
 			}
 		}
 		
-		Some(compiled)
+		Ok(compiled)
 	}
 }
 

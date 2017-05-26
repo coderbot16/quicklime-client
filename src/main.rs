@@ -322,10 +322,9 @@ fn main() {
 		let line = line.unwrap();
 		match language::parse_line(&line) {
 			Ok((key, raw)) => {
-				if let Some(compiled) = Compiled::compile(raw) {
-					dir.insert(key, compiled)
-				} else {
-					println!("Compile error: ({}, {})", key, raw)
+				match Compiled::compile(raw) {
+					Ok(compiled) => dir.insert(key, compiled),
+					Err(err) => println!("Compile error: ({}, {}): {:?}", key, raw, err)
 				}
 			},
 			Err(e) => {

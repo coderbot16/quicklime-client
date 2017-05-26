@@ -159,14 +159,21 @@ impl TimeKind {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Flag {
+	/// All: Left justify the result. Width must be provided.
 	LeftJustify,
+	/// TODO: TODO
 	Alternate,
+	/// [Decimal, all FP]: Indicates that if the number is non-negative and finite, a '+' should be prepended.
 	Plus,
+	/// [Decimal, all FP]: Indicates that if the number is non-negative, a ' ' should be prepended.
 	LeadingSpace,
+	/// Numeric: Indicates to pad the output with zeroes. Width must be provided. Mutually exclusive with LeftJustify.
 	ZeroPad,
-	/// Indicates to use a locale-specific grouping seperator. (',' in en_US to format the number 10000 as 10,000)
+	/// [Decimal, SciNot, Float, CompSciNot]: Indicates to use a locale-specific grouping seperator. (',' in en_US to format the number 10000 as 10,000)
 	Group,
+	/// [Decimal, SciNot, Float, CompSciNot]: Indicates to surround the value with '(' and ')' if it is negative.
 	Parentheses,
+	/// Meta: Indicator to argument index picker to use the last index. Meta-flag.
 	PreviousIndex
 }
 
