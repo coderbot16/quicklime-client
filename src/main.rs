@@ -12,13 +12,15 @@ mod input;
 mod text;
 mod ui;
 mod render2d;
+mod directory;
+
 use render2d::Rect;
 
 use text::render::Command;
 use std::fs::File;
 use input::Screen;
 use glutin::Event;
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 use ui::{Scene, State, Element, Kind, Coloring};
 use ui::lit::Lit;
 //mod resource;
@@ -311,5 +313,54 @@ fn main() {
 	
 	println!("{}", serde_json::to_string(&scene).unwrap());*/
 	
+	use text::language::{self, Directory, Compiled};
 	
+	let mut dir = Directory::new();
+	let lang_file = BufReader::new(File::open("assets/minecraft/lang/en_US.lang").unwrap());
+	
+	for line in lang_file.lines() {
+		let line = line.unwrap();
+		match language::parse_line(&line) {
+			Ok((key, raw)) => {
+				if let Some(compiled) = Compiled::compile(raw) {
+					dir.insert(key, compiled)
+				} else {
+					println!("Compile error: ({}, {})", key, raw)
+				}
+			},
+			Err(e) => {
+				if !line.is_empty() {
+					println!("Parse error: {}", line)
+				}
+			}
+		}
+		
+		
+	}
+	
+	print_helper(None, dir.root(), -1);
+}
+
+use text::language::Node;
+
+fn print_helper(name: Option<&str>, node: &Node, level: isize) {
+	for _ in 0..level {
+		print!("\t")
+	}
+	
+	if let Some(name) = name {
+		print!("{}", name);
+	}
+	
+	if let Some(value) = node.get() {
+		println!(": {}", value);
+	} else {
+		println!();
+	}
+	
+	if let Some(vals) = node.iter() {
+		for (k, v) in vals {
+			print_helper(Some(k), v, level + 1);
+		}
+	}
 }

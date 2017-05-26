@@ -1,48 +1,17 @@
 use text::formatter::{Kind, FormatCommand, Index};
-use std::collections::HashMap;
+use directory;
+use std::fmt::{self, Formatter, Display};
 
-struct Node {
-	branch: Option<HashMap<String, Node>>,
-	leaf: Option<Compiled>
-}
-
-impl Node {
-	fn leaf(compiled: Compiled) -> Self {
-		Node { branch: None, leaf: Some(compiled) }
-	}
-	
-	fn branch(map: HashMap<String, Node>) -> Self {
-		Node { branch: Some(map), leaf: None}
-	}
-	
-	fn set_leaf(&mut self, compiled: Compiled) {
-		// TODO: Use entry APIs when they are stabilized.
-		if let Some(ref mut current) = self.leaf {
-			*current = compiled
-		} else {
-			self.leaf = Some(compiled)
-		}
-	}
-	
-	fn insert(&mut self, key: &str, node: Node) {
-		// TODO: Use entry APIs when they are stabilized.
-		if let Some(ref mut br) = self.branch {
-			br.insert(key.to_owned(), node);
-		} else {
-			let mut map = HashMap::new();
-			map.insert(key.to_owned(), node);
-			self.branch = Some(map);
-		}
-	}
-}
+pub type Directory = directory::Directory<Compiled>;
+pub type Node = directory::Node<Compiled>;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-enum Error {
+pub enum Error {
 	Comment,
 	NoValue
 }
 
-fn parse_line(line: &str) -> Result<(&str, &str), Error> {
+pub fn parse_line(line: &str) -> Result<(&str, &str), Error> {
 	if line.starts_with("#") {
 		// Comment
 		return Err(Error::Comment);
@@ -59,9 +28,16 @@ fn parse_line(line: &str) -> Result<(&str, &str), Error> {
 	))
 }
 
+#[derive(Debug)]
 struct SimpleFormatCmd {
 	string_start: usize,
 	arg_index: usize
+}
+
+impl Display for SimpleFormatCmd {
+	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+		write!(f, "{{{}}}", self.arg_index)
+	}
 }
 
 struct CmdProcessor {
@@ -72,13 +48,13 @@ struct CmdProcessor {
 impl CmdProcessor {
 	fn new() -> Self {
 		CmdProcessor {
-			head: 0,
-			last: 0
+			head: 1,
+			last: 1
 		}
 	}
 	
 	fn process(&mut self, string_start: usize, cmd: FormatCommand) -> Option<SimpleFormatCmd> {
-		if cmd.flags.any() | cmd.width.is_some() | cmd.precision.is_some() | (cmd.kind != Kind::String && cmd.kind != Kind::Decimal && cmd.kind != Kind::Float) {
+		if cmd.flags.any() | cmd.width.is_some() | cmd.precision.is_some() | (cmd.kind != Kind::String && cmd.kind != Kind::Decimal && cmd.kind != Kind::Float) || cmd.upper {
 			None
 		} else {
 			Some(self.process_lossy(string_start, cmd))
@@ -100,22 +76,24 @@ impl CmdProcessor {
 		
 		SimpleFormatCmd {
 				string_start: string_start,
-				arg_index: current_idx
+				arg_index: current_idx - 1 // Format string indices count from 1, but array indices count from 0.
 		}	
 	}
 }
 
-struct Compiled {
+#[derive(Debug)]
+pub struct Compiled {
 	string: String,
 	commands: Vec<SimpleFormatCmd>
 }
 
 impl Compiled {
-	fn compile(source: &str) -> Option<Self> {
+	pub fn compile(source: &str) -> Option<Self> {
 		let mut processor = CmdProcessor::new();
 		let mut compiled = Compiled { string: String::new(), commands: Vec::new() };
 		
 		let mut next = 0;
+		
 		for (index, c) in source.char_indices() {
 			if index < next { continue };
 			
@@ -124,10 +102,16 @@ impl Compiled {
 					if let Ok((size, cmd)) = FormatCommand::parse(&source[index..]) {
 						next = index + size;
 						
-						if let Some(cmd) = processor.process(compiled.string.len(), cmd) {
-							compiled.commands.push(cmd)
+						if cmd.kind == Kind::Newline {
+							compiled.string.push('\n');
+						} else if cmd.kind == Kind::Percent {
+							compiled.string.push('%');
 						} else {
-							return None;
+							if let Some(cmd) = processor.process(compiled.string.len(), cmd) {
+								compiled.commands.push(cmd)
+							} else {
+								return None;
+							}
 						}
 					} else {
 						return None;
@@ -138,6 +122,21 @@ impl Compiled {
 		}
 		
 		Some(compiled)
+	}
+}
+
+impl Display for Compiled {
+	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+		let mut base = 0;
+		let mut string = self.string.clone();
+		
+		for cmd in self.commands.iter() {
+			let command = format!("{}", cmd);
+			string.insert_str(base + cmd.string_start, &command);
+			base += command.len();
+		}
+		
+		write!(f, "\"{}\"", string)
 	}
 }
 

@@ -5,5 +5,5 @@ pub mod default;
 mod align;
 pub mod render;
 pub mod flat;
-mod language;
+pub mod language;
 mod formatter;
