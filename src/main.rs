@@ -12,16 +12,19 @@ mod input;
 mod text;
 mod ui;
 mod render2d;
+mod directory;
+
 use render2d::Rect;
 
+use text::language;
 use text::render::Command;
 use std::fs::File;
 use input::Screen;
 use glutin::Event;
-use std::io::BufReader;
+use std::io::{BufRead, BufReader};
 use ui::{Scene, State, Element, Kind, Coloring};
 use ui::lit::Lit;
-mod resource;
+//mod resource;
 
 #[macro_use]
 extern crate gfx;
@@ -292,7 +295,7 @@ fn main() {
 		println!("{:?}", component);
 	}*/
 	
-	let mut scene = Scene::new();
+	/*let mut scene = Scene::new();
 	let state = State {
 		name: "default".to_owned(),
 		center: (Lit::new(0.0, 0), Lit::new(0.0, 0)),
@@ -309,5 +312,38 @@ fn main() {
 	
 	scene.elements.insert("test".to_owned(), element);
 	
-	println!("{}", serde_json::to_string(&scene).unwrap());
+	println!("{}", serde_json::to_string(&scene).unwrap());*/
+	
+	let name = "assets/minecraft/lang/en_US.lang";
+	let read = BufReader::new(File::open(name).unwrap());
+	let (mut dir, errors) = language::load(read, name).unwrap();
+	for error in &errors {
+		println!("{}", error);
+	}
+	
+	print_helper(None, dir.root(), -1);
+}
+
+use text::language::Node;
+
+fn print_helper(name: Option<&str>, node: &Node, level: isize) {
+	for _ in 0..level {
+		print!("\t")
+	}
+	
+	if let Some(name) = name {
+		print!("{}", name);
+	}
+	
+	if let Some(value) = node.get() {
+		println!(": {}", value);
+	} else {
+		println!();
+	}
+	
+	if let Some(vals) = node.iter() {
+		for (k, v) in vals {
+			print_helper(Some(k), v, level + 1);
+		}
+	}
 }

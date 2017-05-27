@@ -152,7 +152,7 @@ impl ChatBuf {
 	}
 }
 
-struct Components<'a> {
+pub struct Components<'a> {
 	head: &'a str,
 	descriptors: Iter<'a, Descriptor>,
 	level: Level
