@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use std::num::ParseIntError;
+mod transform;
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Kind {
@@ -7,14 +8,18 @@ pub enum Kind {
 	HexHashCode,
 	String,
 	Unicode,
+	// NUMERIC
 	Decimal,
 	Octal,
 	Hex,
-	SciNot,
-	Float,
+	// NUMERIC-FP
 	CompSciNot,
+	Float,
+	SciNot,
 	Hexfloat,
+	// TIME
 	Time(TimeKind),
+	// ESCAPE
 	Percent,
 	Newline
 }
@@ -34,11 +39,11 @@ impl Kind {
 			'o' => (Kind::Octal, 		false),
 			'x' => (Kind::Hex, 			false),
 			'X' => (Kind::Hex, 			true),
-			'e' => (Kind::SciNot, 		false),
-			'E' => (Kind::SciNot, 		true),
+			'e' => (Kind::CompSciNot, 	false),
+			'E' => (Kind::CompSciNot, 	true),
 			'f' => (Kind::Float, 		false),
-			'g' => (Kind::CompSciNot, 	false),
-			'G' => (Kind::CompSciNot, 	true),
+			'g' => (Kind::SciNot, 		false),
+			'G' => (Kind::SciNot, 		true),
 			'a' => (Kind::Hexfloat, 	false),
 			'A' => (Kind::Hexfloat, 	true),
 			't' => return other.and_then(TimeKind::from_character).map(|tk| (Kind::Time(tk), false)),
@@ -58,9 +63,9 @@ impl Kind {
 			Kind::Decimal 		=> 'd',
 			Kind::Octal 		=> 'o',
 			Kind::Hex 			=> if upper {'X'} else {'x'},
-			Kind::SciNot 		=> if upper {'E'} else {'e'},
+			Kind::CompSciNot 	=> if upper {'E'} else {'e'},
 			Kind::Float 		=> 'f',
-			Kind::CompSciNot 	=> if upper {'G'} else {'g'},
+			Kind::SciNot 		=> if upper {'G'} else {'g'},
 			Kind::Hexfloat 		=> if upper {'A'} else {'a'},
 			Kind::Time(_) 		=> if upper {'T'} else {'t'},
 			Kind::Percent 		=> '%',
@@ -163,7 +168,7 @@ pub enum Flag {
 	LeftJustify,
 	/// TODO: TODO
 	Alternate,
-	/// [Decimal, all FP]: Indicates that if the number is non-negative and finite, a '+' should be prepended.
+	/// [Decimal, all FP]: Indicates that if the number is non-negative and finite, a '+' should be prepended. Redundant on Hexfloat.
 	Plus,
 	/// [Decimal, all FP]: Indicates that if the number is non-negative, a ' ' should be prepended.
 	LeadingSpace,
@@ -173,6 +178,7 @@ pub enum Flag {
 	Group,
 	/// [Decimal, SciNot, Float, CompSciNot]: Indicates to surround the value with '(' and ')' if it is negative.
 	Parentheses,
+	
 	/// Meta: Indicator to argument index picker to use the last index. Meta-flag.
 	PreviousIndex
 }
@@ -250,7 +256,7 @@ impl Flags {
 		self.0 & Flag::Plus.bit() != 0
 	}
 	
-	pub fn leasing_space(&self) -> bool {
+	pub fn leading_space(&self) -> bool {
 		self.0 & Flag::LeadingSpace.bit() != 0
 	}
 	

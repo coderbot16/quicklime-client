@@ -51,26 +51,27 @@ pub enum ProcessError {
 	UnsupportedWidth,
 	UnsupportedPrecision,
 	UnsupportedKind,
-	Parse(ParseFormatError)
+	Parse(ParseFormatError),
+	NoPreviousArgument
 }
 
 struct CmdProcessor {
 	head: usize,
-	last: usize
+	last: Option<usize>
 }
 
 impl CmdProcessor {
 	fn new() -> Self {
 		CmdProcessor {
 			head: 1,
-			last: 1
+			last: None
 		}
 	}
 	
 	fn process(&mut self, string_start: usize, cmd: FormatCommand) -> Result<SimpleFormatCmd, ProcessError> {
 		if cmd.kind == Kind::Decimal || cmd.kind == Kind::Float {
 			// Plain decimal/float format codes are replaced with string format codes, for some reason. But why?
-			self.last = 1;
+			self.last = Some(1);
 			Ok(SimpleFormatCmd { string_start: string_start, arg_index: 0, upper: false })
 			
 		} else if cmd.flags.any() {
@@ -82,13 +83,13 @@ impl CmdProcessor {
 		} else if cmd.kind != Kind::String {
 			Err(ProcessError::UnsupportedKind)
 		} else {
-			Ok(self.process_lossy(string_start, cmd))
+			self.process_lossy(string_start, cmd)
 		}		
 	}
 	
-	fn process_lossy(&mut self, string_start: usize, cmd: FormatCommand) -> SimpleFormatCmd {
+	fn process_lossy(&mut self, string_start: usize, cmd: FormatCommand) -> Result<SimpleFormatCmd, ProcessError> {
 		let current_idx = match cmd.index {
-			Index::Previous => self.last,
+			Index::Previous => if let Some(last) = self.last {last} else {return Err(ProcessError::NoPreviousArgument)},
 			Index::Exact(idx) => idx,
 			Index::Next => self.head
 		};
@@ -97,13 +98,13 @@ impl CmdProcessor {
 			self.head += 1;
 		}
 		
-		self.last = current_idx;
+		self.last = Some(current_idx);
 		
-		SimpleFormatCmd {
+		Ok(SimpleFormatCmd {
 				string_start: string_start,
 				arg_index: current_idx - 1, // Format string indices count from 1, but array indices count from 0.
 				upper: cmd.upper
-		}	
+		})	
 	}
 }
 
