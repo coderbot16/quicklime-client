@@ -16,6 +16,7 @@ mod directory;
 
 use render2d::Rect;
 
+use text::language;
 use text::render::Command;
 use std::fs::File;
 use input::Screen;
@@ -313,28 +314,11 @@ fn main() {
 	
 	println!("{}", serde_json::to_string(&scene).unwrap());*/
 	
-	use text::language::{self, Directory, Compiled};
-	
-	let mut dir = Directory::new();
-	let lang_file = BufReader::new(File::open("assets/minecraft/lang/en_US.lang").unwrap());
-	
-	for line in lang_file.lines() {
-		let line = line.unwrap();
-		match language::parse_line(&line) {
-			Ok((key, raw)) => {
-				match Compiled::compile(raw) {
-					Ok(compiled) => dir.insert(key, compiled),
-					Err(err) => println!("Compile error: ({}, {}): {:?}", key, raw, err)
-				}
-			},
-			Err(e) => {
-				if !line.is_empty() {
-					println!("Parse error: {}", line)
-				}
-			}
-		}
-		
-		
+	let name = "assets/minecraft/lang/en_US.lang";
+	let read = BufReader::new(File::open(name).unwrap());
+	let (mut dir, errors) = language::load(read, name).unwrap();
+	for error in &errors {
+		println!("{}", error);
 	}
 	
 	print_helper(None, dir.root(), -1);

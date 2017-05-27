@@ -1,9 +1,100 @@
 use text::formatter::{Kind, FormatCommand, Index, ParseFormatError};
 use directory;
 use std::fmt::{self, Formatter, Display};
+use std::io::{self, BufRead};
 
 pub type Directory = directory::Directory<Compiled>;
 pub type Node = directory::Node<Compiled>;
+
+pub fn load<R>(read: R, name: &str) -> Result<(Directory, Vec<LoadError>), io::Error> where R: BufRead {
+	let mut dir = Directory::new();
+	let mut line_number = 0;
+	let mut load_errors = Vec::new();
+	
+	for line in read.lines() {
+		let line = try!(line);
+		
+		match parse_line(&line) {
+			Ok((key, raw)) => {
+				match Compiled::compile(raw) {
+					Ok(compiled) => dir.insert(key, compiled),
+					Err((index, err)) => {
+						load_errors.push(LoadError {
+							err: Some(err), 
+							file: name, 
+							line: line_number,
+							text: line.clone(), 
+							index: index + key.len() + 1
+						});
+					}
+				}
+			},
+			Err(e) => {
+				if !line.is_empty() {
+					load_errors.push(LoadError {
+						err: None, 
+						file: name, 
+						line: line_number, 
+						text: line.clone(),
+						index: 0
+					});
+				}
+			}
+		};
+		
+		line_number += 1;
+	}
+	
+	Ok((dir, load_errors))
+}
+
+pub struct LoadError<'a> {
+	err: Option<ProcessError>,
+	file: &'a str,
+	line: usize,
+	index: usize,
+	text: String
+}
+
+impl<'a> Display for LoadError<'a> {
+	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+		if let Some(ref err) = self.err {
+			try!(writeln!(f, "error: {}", err));
+		} else {
+			try!(writeln!(f, "error: line does not have an equals sign"));
+		}
+		
+		
+		try!(writeln!(f, "  --> {}:{}:{}", "assets/minecraft/lang/en_US.lang", self.line+1, self.index+1));
+				
+		let num = format!("{}", self.line+1);
+				
+		for _ in 0..num.len() {try!(write!(f, " "))};
+		try!(writeln!(f, " |"));
+					
+		try!(writeln!(f, "{} | {}", num, self.text));
+					
+		for _ in 0..num.len() {try!(write!(f, " "))};
+		try!(write!(f, " | "));
+		for _ in 0..self.index {
+			try!(write!(f, " "))
+		}
+						
+		try!(writeln!(f, "^"));
+		
+		for _ in 0..num.len() {try!(write!(f, " "))};
+		try!(writeln!(f, " |"));
+		for _ in 0..num.len() {try!(write!(f, " "))};
+						
+		if let Some(ref err) = self.err {
+			if let Some(help) = err.help() {
+				try!(writeln!(f, " = help: {}", help))
+			}
+		};
+		
+		Ok(())
+	}
+}
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Error {
@@ -50,9 +141,35 @@ pub enum ProcessError {
 	UnsupportedFlags,
 	UnsupportedWidth,
 	UnsupportedPrecision,
-	UnsupportedKind,
+	UnsupportedKind(Kind, bool),
 	Parse(ParseFormatError),
 	NoPreviousArgument
+}
+
+impl ProcessError {
+	pub fn help(&self) -> Option<&'static str> {
+		match self {
+			&ProcessError::UnsupportedFlags 	 => Some("the formatting system does not support this feature yet"),
+			&ProcessError::UnsupportedWidth 	 => Some("the formatting system does not support this feature yet"),
+			&ProcessError::UnsupportedPrecision  => Some("the formatting system does not support this feature yet"),
+			&ProcessError::UnsupportedKind(k, _) => Some("the formatting system does not support this feature yet"),
+			&ProcessError::Parse(ref p) 			 => p.help(),
+			&ProcessError::NoPreviousArgument 	 => Some("please use relative indexing (%s) or exact indexing (%1$s) for this format code")
+		}
+	}
+}
+
+impl Display for ProcessError {
+	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+		match self {
+			&ProcessError::UnsupportedFlags => write!(f, "flags are not currently supported"),
+			&ProcessError::UnsupportedWidth => write!(f, "width is not currently supported"),
+			&ProcessError::UnsupportedPrecision => write!(f, "precision is not currently supported"),
+			&ProcessError::UnsupportedKind(k, upper) => write!(f, "kind {:?} [%{}] is not currently supported", k, k.character(upper)),
+			&ProcessError::Parse(ref p) => write!(f, "while parsing format: {}", p),
+			&ProcessError::NoPreviousArgument => write!(f, "previous argument flag used ('<'), but there is no previous argument")
+		}
+	}
 }
 
 struct CmdProcessor {
@@ -81,7 +198,7 @@ impl CmdProcessor {
 		} else if cmd.precision.is_some() {
 			Err(ProcessError::UnsupportedPrecision)
 		} else if cmd.kind != Kind::String {
-			Err(ProcessError::UnsupportedKind)
+			Err(ProcessError::UnsupportedKind(cmd.kind, cmd.upper))
 		} else {
 			self.process_lossy(string_start, cmd)
 		}		
@@ -115,7 +232,7 @@ pub struct Compiled {
 }
 
 impl Compiled {
-	pub fn compile(source: &str) -> Result<Self, ProcessError> {
+	pub fn compile(source: &str) -> Result<Self, (usize, ProcessError)> {
 		let mut processor = CmdProcessor::new();
 		let mut compiled = Compiled { string: String::new(), commands: Vec::new() };
 		
@@ -126,7 +243,7 @@ impl Compiled {
 			
 			match c {
 				'%' => {
-					let (size, cmd) = try!(FormatCommand::parse(&source[index..]).map_err(ProcessError::Parse)); 
+					let (size, cmd) = try!(FormatCommand::parse(&source[index..]).map_err(|e| (index, ProcessError::Parse(e)))); 
 					
 					next = index + size;
 					
@@ -135,7 +252,7 @@ impl Compiled {
 					} else if cmd.kind == Kind::Percent {
 						compiled.string.push('%');
 					} else {
-						compiled.commands.push(try!(processor.process(compiled.string.len(), cmd)));
+						compiled.commands.push(try!(processor.process(compiled.string.len(), cmd).map_err(|e| (index, e))));
 					}
 				},
 				c => compiled.string.push(c)

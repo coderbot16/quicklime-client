@@ -1,6 +1,7 @@
 use std::str::FromStr;
 use std::num::ParseIntError;
 mod transform;
+use std::fmt::{self, Formatter, Display};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Kind {
@@ -54,7 +55,7 @@ impl Kind {
 		})
 	}
 	
-	fn character(&self, upper: bool) -> char {
+	pub fn character(&self, upper: bool) -> char {
 		match *self {
 			Kind::Bool 			=> if upper {'B'} else {'b'},
 			Kind::HexHashCode 	=> if upper {'H'} else {'h'},
@@ -236,8 +237,13 @@ pub enum Index {
 pub struct Flags(u8);
 
 impl Flags {
-	pub fn handle(&mut self, flag: Flag)  {
-		self.0 |= flag.bit()
+	pub fn handle(&mut self, flag: Flag) -> bool {
+		if self.0 & flag.bit() != 0 {
+			false
+		} else {
+			self.0 |= flag.bit();
+			true
+		}
 	}
 	
 	pub fn any(&self) -> bool {
@@ -286,9 +292,34 @@ pub struct FormatCommand {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ParseFormatError {
 	NotFormat,
-	ParseInt(ParseIntError),
 	ExpectedPrecision,
-	BadConversion
+	BadConversion(char),
+	NoConversion,
+	DuplicateFlag(Flag)
+}
+
+impl ParseFormatError {
+	pub fn help(&self) -> Option<&'static str> {
+		match *self {
+			ParseFormatError::NotFormat => None,
+			ParseFormatError::ExpectedPrecision => None,
+			ParseFormatError::BadConversion(_) => Some("are you sure you don't have any invalid characters in the format code, as that would result in this error as well?"),
+			ParseFormatError::NoConversion => None,
+			ParseFormatError::DuplicateFlag(_) => None
+		}
+	}
+}
+
+impl Display for ParseFormatError {
+	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+		match *self {
+			ParseFormatError::NotFormat => write!(f, "tried to parse a format code, but it does not start with '%' - the caller has a bug"),
+			ParseFormatError::ExpectedPrecision => write!(f, "found a '.', but there was no precision number afterwards"),
+			ParseFormatError::BadConversion(c) => write!(f, "unsupported conversion character: {}", c),
+			ParseFormatError::NoConversion => write!(f, "didn't find a conversion character"),
+			ParseFormatError::DuplicateFlag(flag) => write!(f, "flag specified multiple times: {:?} ['{}']", flag, flag.character())
+		}
+	}
 }
 
 impl FormatCommand {
@@ -309,7 +340,7 @@ impl FormatCommand {
 		
 		// Try to parse the numeric value.
 		let value = if !num.is_empty() {
-			Some(try!(num.parse::<usize>().map_err(ParseFormatError::ParseInt)))
+			Some(num.parse::<usize>().expect("parsing an integer from a digits-only string should never fail"))
 		} else {
 			None
 		};
@@ -326,7 +357,7 @@ impl FormatCommand {
 			while let Some(Some(flag)) = iter.next() {
 				match flag {
 					Flag::PreviousIndex => use_prev = true,
-					flag => flags.handle(flag)
+					flag => if !flags.handle(flag) { return Err(ParseFormatError::DuplicateFlag(flag)) }
 				}
 				
 				num_flags += 1;
@@ -343,7 +374,7 @@ impl FormatCommand {
 			let (num, s) = get_num(&s[num_flags..]);
 		
 			let width = if !num.is_empty() {
-				Some(try!(num.parse::<usize>().map_err(ParseFormatError::ParseInt)))
+				Some(num.parse::<usize>().expect("parsing an integer from a digits-only string should never fail"))
 			} else {
 				None
 			};
@@ -357,7 +388,7 @@ impl FormatCommand {
 			let (num, s) = get_num(&s[1..]);
 		
 			(s, if !num.is_empty() {
-				Some(try!(num.parse::<usize>().map_err(ParseFormatError::ParseInt)))
+				Some(num.parse::<usize>().expect("parsing an integer from a digits-only string should never fail"))
 			} else {
 				return Err(ParseFormatError::ExpectedPrecision)
 			})
@@ -370,7 +401,10 @@ impl FormatCommand {
 			.and_then(|first| 
 				Kind::from_character(first, s.chars().nth(1))
 			)
-			.ok_or(ParseFormatError::BadConversion)
+			.ok_or( match s.chars().nth(0) {
+				Some(c) => ParseFormatError::BadConversion(c),
+				None => ParseFormatError::NoConversion
+			})
 		};
 		
 		Ok((start_len - s.len() + 1, FormatCommand {
