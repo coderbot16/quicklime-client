@@ -1,34 +1,46 @@
 use text::formatter::{Kind, FormatCommand, Index, ParseFormatError};
 use directory;
 use std::fmt::{self, Formatter, Display};
-use std::io::{self, BufRead};
+use std::io::{self, Read, BufReader, BufRead, Write};
+use resource::Asset;
 
 pub type Directory = directory::Directory<Result<Compiled, LoadError>>;
 pub type Node = directory::Node<Result<Compiled, LoadError>>;
 
-pub fn load<R>(read: R, name: &str) -> Result<Directory, Error> where R: BufRead {
-	let mut dir = Directory::new();
-	let mut line_number = 0;
+impl Asset for Directory {
+	type Err = Error;
+	type WErr = ();
 	
-	for line in read.lines() {
-		let line = try!(line.map_err(Error::Io));
+	fn load<R>(read: &mut R, name: &str) -> Result<Self, Self::Err> where R: Read {
+		let read = BufReader::new(read);
 		
-		if let Some((key, raw)) = try!(parse_line(&line)) {
-			dir.insert(key, Compiled::compile(raw).map_err(
-				|(index, err)| LoadError {
-					err: err, 
-					file: name.to_owned(), 
-					line: line_number,
-					text: line.clone(), 
-					index: index + key.len() + 1
-				}
-			))
-		};
+		let mut dir = Directory::new();
+		let mut line_number = 0;
 		
-		line_number += 1;
+		for line in read.lines() {
+			let line = try!(line.map_err(Error::Io));
+			
+			if let Some((key, raw)) = try!(parse_line(&line)) {
+				dir.insert(key, Compiled::compile(raw).map_err(
+					|(index, err)| LoadError {
+						err: err, 
+						file: name.to_owned(), 
+						line: line_number,
+						text: line.clone(), 
+						index: index + key.len() + 1
+					}
+				))
+			};
+			
+			line_number += 1;
+		}
+		
+		Ok(dir)
 	}
 	
-	Ok(dir)
+	fn save<W>(write: &mut W) -> Result<(), Self::WErr> where W: Write {
+		unimplemented!()
+	}
 }
 
 pub struct LoadError {

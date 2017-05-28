@@ -25,7 +25,8 @@ use glutin::Event;
 use std::io::{BufRead, BufReader};
 use ui::{Scene, State, Element, Kind, Coloring};
 use ui::lit::Lit;
-//mod resource;
+mod resource;
+use resource::Asset;
 
 #[macro_use]
 extern crate gfx;
@@ -316,8 +317,8 @@ fn main() {
 	println!("{}", serde_json::to_string(&scene).unwrap());*/
 	
 	let name = "assets/minecraft/lang/en_US.lang";
-	let read = BufReader::new(File::open(name).unwrap());
-	let mut dir = language::load(read, name).unwrap();
+	let mut read = File::open(name).unwrap();
+	let mut dir = language::Directory::load(&mut read, name).unwrap();
 	
 	print_helper(None, dir.root(), -1);
 }
