@@ -13,6 +13,7 @@ mod text;
 mod ui;
 mod render2d;
 mod directory;
+//mod scoreboard;
 
 use render2d::Rect;
 
@@ -55,7 +56,7 @@ gfx_defines!{
     pipeline pipe {
         vbuf: gfx::VertexBuffer<Vertex> = (),
         transform: gfx::ConstantBuffer<Transform> = "Transform",
-        out: gfx::RenderTarget<ColorFormat> = "Target0",
+        out: gfx::BlendTarget<ColorFormat> = ("Target0", gfx::state::MASK_ALL, gfx::preset::blend::ALPHA),
         tex: gfx::TextureSampler<[f32; 4]> = "s_texture",
     }
 }
@@ -119,7 +120,7 @@ fn main() {
 	println!("{:?}", sv_cheats.parse(ok));
 	println!("{:?}", sv_cheats.parse(bad));*/
 	
-	/*let mut screen = Screen::new();
+	let mut screen = Screen::new();
 	//let sp_slice = ScreenSlice {x_min: -0.2, x_max: 0.2, y_min: -0.2, y_max: 0.2};
 	//let mp_slice = ScreenSlice {x_min: -0.2, x_max: 0.2, y_min: -0.5, y_max: -0.3};
 
@@ -128,9 +129,11 @@ fn main() {
 	let metrics = text::metrics::Metrics::unicode(glyph_metrics);
 	
 	let ctxt = text::render::RenderingContext::new(&metrics);
-	let mut style = text::style::Style::new(text::style::Color::Palette(text::style::PaletteColor::White));
+	let mut style = text::style::Style::new();
+	style.color = text::style::Color::Palette(text::style::PaletteColor::White);
+	
 	// TODO: Bold doesn't work.
-	style.flags = style.flags.set_italic(true);
+	//style.flags = style.flags.set_bold(true);
 	
 	let page_0_file = File::open("/home/coderbot/eclipseRust/workspace/quicklime-client/assets/minecraft/textures/font/unicode_page_00.png").unwrap();
 	let page_0 = image::load(BufReader::new(page_0_file), ImageFormat::PNG).expect("failed to load image").flipv();
@@ -139,17 +142,7 @@ fn main() {
 	let mut page_0_raw = Vec::with_capacity(256*256);
 	
 	for (x, y, pixel) in rgba.enumerate_pixels() {
-		let data = if pixel.data[3] == 0 {
-			[0, 0, 0, 0]
-		} else {
-			pixel.data
-		};
-		
-		page_0_raw.push(data);
-		
-		if x >= 128 && x < 144 && y >= 64 && y < 80 {
-			println!("{:?}", data);
-		}
+		page_0_raw.push(pixel.data);
 	}
 	
 	//let vertex_data: Vec<Vertex> = 
@@ -174,19 +167,21 @@ fn main() {
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder);
         
 	let mut last_half_size = (960.0, 540.0);
-	let scale_factor = 2.0;
+	let scale_factor = 16.0;
 	
 	let scale = ((1.0 / last_half_size.0) * scale_factor, (1.0 / last_half_size.1) * scale_factor);
 	
 	let mut vertex_data: Vec<Vertex> = Vec::new();
 	
-	for command in ctxt.render(0.0, 0.0, "Hello World!".chars(), &style, false).filter_map(|x| x) {
+	for command in ctxt.render(1.0, -1.0, "Hello World!".chars(), &style, true, [0.247058824,0.247058824,0.247058824]).filter_map(|x| x).chain(
+		ctxt.render(0.0, 0.0, "Hello World!".chars(), &style, false, [1.0, 1.0, 1.0]).filter_map(|x| x)
+	) {
 		println!("{:?}", command);
 		match command {
 			Command::Char( ref draw_command ) => {
 				vertex_data.extend (
 					draw_command
-					.to_quad(scale, [1.0, 1.0, 1.0])
+					.to_quad(scale)
 					.as_triangles()
 					.iter()
 					.map(|vertex| Vertex { pos: [vertex.pos[0], vertex.pos[1], -0.5, 1.0], color: vertex.color, tex: vertex.tex })
@@ -263,7 +258,7 @@ fn main() {
 		
 		window.swap_buffers().unwrap();
 		device.cleanup();
-	}*/
+	}
 	
 	/*use text::flat::{Component, ChatBuf, Kind, Mode};
 	use text::style::Style;
@@ -314,14 +309,14 @@ fn main() {
 	
 	println!("{}", serde_json::to_string(&scene).unwrap());*/
 	
-	let name = "assets/minecraft/lang/en_US.lang";
+	/*let name = "assets/minecraft/lang/en_US.lang";
 	let read = BufReader::new(File::open(name).unwrap());
 	let (mut dir, errors) = language::load(read, name).unwrap();
 	for error in &errors {
 		println!("{}", error);
 	}
 	
-	print_helper(None, dir.root(), -1);
+	print_helper(None, dir.root(), -1);*/
 }
 
 use text::language::Node;

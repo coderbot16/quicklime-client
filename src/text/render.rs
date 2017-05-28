@@ -151,9 +151,12 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 				};
 				
 				let x = x + self.advance;
-				self.advance += size.advance().floor();
-				self.advance += if self.style.flags.bold() {1.0} else {0.0};
-				self.bonus = size.advance().fract();
+				
+				if !self.style.flags.bold() | (self.style.flags.bold() && bold) {
+					self.advance += size.advance().floor();
+					self.advance += if self.style.flags.bold() {1.0} else {0.0};
+					self.bonus = size.advance().fract();
+				}
 				
 				if c == ' ' {
 					// We don't render space characters, but rendering them wouldn't hurt anything. This is just an optimization.
@@ -173,7 +176,7 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 					let bold_offset = offset + char_offset;
 					self.state = RenderState::NextChar;
 					
-					Some(Command::decide(x + bold_offset, y + char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, self.color))
+					Some(Command::decide(x + bold_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, self.color))
 				} else {
 					self.state = if self.style.flags.bold() {
 						RenderState::Main(c, true)
@@ -181,7 +184,7 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 						RenderState::NextChar
 					};
 					
-					Some(Command::decide(x + char_offset, y + char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, self.color))
+					Some(Command::decide(x + char_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, self.color))
 				}
 			},
 			RenderState::Strike => {

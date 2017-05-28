@@ -217,7 +217,6 @@ impl Descriptor {
 
 // INTER
 
-// TODO: Make sure that text is no longer than 2^16 - 1 
 #[derive(Debug)]
 pub struct Component<'a> {
 	text: &'a str,
