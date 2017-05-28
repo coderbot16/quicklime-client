@@ -39,7 +39,7 @@ pub struct DrawChar {
 }
 
 impl DrawChar {
-	pub fn to_quad(&self, scale: (f32, f32)) -> Quad {
+	pub fn to_quad(&self, scale: (f32, f32)) -> (Quad, u32) {
 		let left = (self.size.left() as f32) / 256.0;
 		let add = (self.size.right() as f32 + 1.0) / 256.0;
 		
@@ -60,7 +60,7 @@ impl DrawChar {
 		
 		quad.slant(if self.italic {scale.0} else {0.0});
 		
-		quad
+		(quad, character / 256)
 	}
 }
 

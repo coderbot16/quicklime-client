@@ -3,67 +3,45 @@ use directory;
 use std::fmt::{self, Formatter, Display};
 use std::io::{self, BufRead};
 
-pub type Directory = directory::Directory<Compiled>;
-pub type Node = directory::Node<Compiled>;
+pub type Directory = directory::Directory<Result<Compiled, LoadError>>;
+pub type Node = directory::Node<Result<Compiled, LoadError>>;
 
-pub fn load<R>(read: R, name: &str) -> Result<(Directory, Vec<LoadError>), io::Error> where R: BufRead {
+pub fn load<R>(read: R, name: &str) -> Result<Directory, Error> where R: BufRead {
 	let mut dir = Directory::new();
 	let mut line_number = 0;
-	let mut load_errors = Vec::new();
 	
 	for line in read.lines() {
-		let line = try!(line);
+		let line = try!(line.map_err(Error::Io));
 		
-		match parse_line(&line) {
-			Ok((key, raw)) => {
-				match Compiled::compile(raw) {
-					Ok(compiled) => dir.insert(key, compiled),
-					Err((index, err)) => {
-						load_errors.push(LoadError {
-							err: Some(err), 
-							file: name, 
-							line: line_number,
-							text: line.clone(), 
-							index: index + key.len() + 1
-						});
-					}
+		if let Some((key, raw)) = try!(parse_line(&line)) {
+			dir.insert(key, Compiled::compile(raw).map_err(
+				|(index, err)| LoadError {
+					err: err, 
+					file: name.to_owned(), 
+					line: line_number,
+					text: line.clone(), 
+					index: index + key.len() + 1
 				}
-			},
-			Err(e) => {
-				if !line.is_empty() {
-					load_errors.push(LoadError {
-						err: None, 
-						file: name, 
-						line: line_number, 
-						text: line.clone(),
-						index: 0
-					});
-				}
-			}
+			))
 		};
 		
 		line_number += 1;
 	}
 	
-	Ok((dir, load_errors))
+	Ok(dir)
 }
 
-pub struct LoadError<'a> {
-	err: Option<ProcessError>,
-	file: &'a str,
+pub struct LoadError {
+	err: ProcessError,
+	file: String,
 	line: usize,
 	index: usize,
 	text: String
 }
 
-impl<'a> Display for LoadError<'a> {
+impl Display for LoadError {
 	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-		if let Some(ref err) = self.err {
-			try!(writeln!(f, "error: {}", err));
-		} else {
-			try!(writeln!(f, "error: line does not have an equals sign"));
-		}
-		
+		try!(writeln!(f, "error: {}", self.err));
 		
 		try!(writeln!(f, "  --> {}:{}:{}", "assets/minecraft/lang/en_US.lang", self.line+1, self.index+1));
 				
@@ -84,36 +62,34 @@ impl<'a> Display for LoadError<'a> {
 		
 		for _ in 0..num.len() {try!(write!(f, " "))};
 		try!(writeln!(f, " |"));
-		for _ in 0..num.len() {try!(write!(f, " "))};
-						
-		if let Some(ref err) = self.err {
-			if let Some(help) = err.help() {
-				try!(writeln!(f, " = help: {}", help))
-			}
-		};
+		
+		if let Some(help) = self.err.help() {
+			for _ in 0..num.len() {try!(write!(f, " "))};
+			try!(writeln!(f, " = help: {}", help))
+		}
 		
 		Ok(())
 	}
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug)]
 pub enum Error {
-	Comment,
+	Io(io::Error),
 	NoValue
 }
 
-pub fn parse_line(line: &str) -> Result<(&str, &str), Error> {
-	if line.starts_with("#") {
+pub fn parse_line(line: &str) -> Result<Option<(&str, &str)>, Error> {
+	if line.is_empty() || line.starts_with("#") {
 		// Comment
-		return Err(Error::Comment);
+		return Ok(None);
 	}
 	
 	let mut items = line.split("=");
 	
-	Ok((
+	Ok(Some((
 		items.next().expect("A split iterator should yield at least one element! Go home Rust, you're drunk."), 
 		try!(items.next().ok_or(Error::NoValue))
-	))
+	)))
 }
 
 #[derive(Debug)]

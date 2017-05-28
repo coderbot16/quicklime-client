@@ -111,6 +111,8 @@ void main() {
 	];*/
 
 fn main() {
+	// minimum width: 320x240
+	
 	println!("Starting quicklime-client version 0.0.1");
 	
 	/*let sv_cheats = Kind::Int {low: 0, high: 1};
@@ -120,7 +122,7 @@ fn main() {
 	println!("{:?}", sv_cheats.parse(ok));
 	println!("{:?}", sv_cheats.parse(bad));*/
 	
-	let mut screen = Screen::new();
+	/*let mut screen = Screen::new();
 	//let sp_slice = ScreenSlice {x_min: -0.2, x_max: 0.2, y_min: -0.2, y_max: 0.2};
 	//let mp_slice = ScreenSlice {x_min: -0.2, x_max: 0.2, y_min: -0.5, y_max: -0.3};
 
@@ -179,9 +181,13 @@ fn main() {
 		println!("{:?}", command);
 		match command {
 			Command::Char( ref draw_command ) => {
+				let (quad, atlas) = draw_command.to_quad(scale); 
+				if atlas != 0 {
+					panic!("TODO: Multiple atlas support")
+				}
+				
 				vertex_data.extend (
-					draw_command
-					.to_quad(scale)
+					quad
 					.as_triangles()
 					.iter()
 					.map(|vertex| Vertex { pos: [vertex.pos[0], vertex.pos[1], -0.5, 1.0], color: vertex.color, tex: vertex.tex })
@@ -258,7 +264,7 @@ fn main() {
 		
 		window.swap_buffers().unwrap();
 		device.cleanup();
-	}
+	}*/
 	
 	/*use text::flat::{Component, ChatBuf, Kind, Mode};
 	use text::style::Style;
@@ -309,14 +315,11 @@ fn main() {
 	
 	println!("{}", serde_json::to_string(&scene).unwrap());*/
 	
-	/*let name = "assets/minecraft/lang/en_US.lang";
+	let name = "assets/minecraft/lang/en_US.lang";
 	let read = BufReader::new(File::open(name).unwrap());
-	let (mut dir, errors) = language::load(read, name).unwrap();
-	for error in &errors {
-		println!("{}", error);
-	}
+	let mut dir = language::load(read, name).unwrap();
 	
-	print_helper(None, dir.root(), -1);*/
+	print_helper(None, dir.root(), -1);
 }
 
 use text::language::Node;
@@ -331,7 +334,11 @@ fn print_helper(name: Option<&str>, node: &Node, level: isize) {
 	}
 	
 	if let Some(value) = node.get() {
-		println!(": {}", value);
+		match value {
+			&Ok(ref v) => println!(": {}", v),
+			&Err(ref e) => println!(": [error]\n{}", e)
+		}
+		
 	} else {
 		println!();
 	}
