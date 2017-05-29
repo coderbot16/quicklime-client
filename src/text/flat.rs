@@ -21,7 +21,8 @@ pub enum Kind {
 	ScoreName,
 	ScoreObjective,
 	ScoreValue,
-	Selector
+	Selector,
+	Keybind
 }
 
 // The interaction is seperated from the text because they are unrelated for most purposes.

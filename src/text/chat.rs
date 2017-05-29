@@ -30,6 +30,7 @@ pub struct Interaction {
 // Translation
 // Score
 // Selector
+// Keybind
 // (return an error)
 
 enum Payload {

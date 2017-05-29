@@ -38,7 +38,7 @@ impl Asset for Directory {
 		Ok(dir)
 	}
 	
-	fn save<W>(write: &mut W) -> Result<(), Self::WErr> where W: Write {
+	fn save<W>(&self, write: &mut W) -> Result<(), Self::WErr> where W: Write {
 		unimplemented!()
 	}
 }
