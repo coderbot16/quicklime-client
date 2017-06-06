@@ -168,6 +168,7 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 				
 				// TODO: Make obsfucate work in some way.
 				
+				// For shadowed text, we offset by 1 pixel forward and down. If this is unicode text, we have to offset half a default pixel, as there are 2 unicode pixels for each default pixel.
 				let offset = if self.metrics.always_unicode() {0.5} else {1.0};
 				let shadow_and_unicode = (c == '\0' || default_index.is_none() || self.metrics.always_unicode()) && self.shadow;
 				let char_offset = if shadow_and_unicode {-offset} else {0.0};

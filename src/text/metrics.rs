@@ -142,7 +142,7 @@ impl Metrics {
 		None
 	}
 	
-	pub fn advance<'a, S, I>(&'a self, iter: S, force_unicode: bool, style: &StyleFlags) -> Advance<'a, I> where S: IntoIterator<Item=char, IntoIter=I>, I: Iterator<Item=char> {
+	pub fn advance<'a, S, I>(&'a self, iter: S, style: &StyleFlags) -> Advance<'a, I> where S: IntoIterator<Item=char, IntoIter=I>, I: Iterator<Item=char> {
 		Advance { iter: iter.into_iter(), bold: style.bold(), metrics: &self }
 	}
 }

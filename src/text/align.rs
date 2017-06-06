@@ -1,16 +1,16 @@
 use std::ops::{Add, Sub, Mul, Div};
 
-enum Align {
+pub enum Align {
 	Left,
 	Center,
 	Right
 }
 
 impl Align {
-	fn start_x(&self, x_min: u32, x_max: u32, width: u32) -> u32 {
+	pub fn start_x(&self, x_min: f32, x_max: f32, width: f32) -> f32 {
 		match *self {
 			Align::Left => x_min,
-			Align::Center => ((x_min as u64 + x_max as u64 - width as u64) / 2) as u32,
+			Align::Center => (x_min + x_max - width) / 2.0,
 			Align::Right => x_max - width
 		}
 	}

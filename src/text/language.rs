@@ -268,10 +268,11 @@ impl Display for Compiled {
 
 #[test]
 fn test_parse_lines() {
-	assert_eq!(Ok(("translation.test.none", "Hello, world!")), parse_line("translation.test.none=Hello, world!"));
-	assert_eq!(Ok(("translation.test.none", "Hello, world!")), parse_line("translation.test.none=Hello, world!=whatever"));
-	assert_eq!(Ok((" translation.test.none", "Hello, world! ")), parse_line(" translation.test.none=Hello, world! "));
-	assert_eq!(Err(Error::Comment), parse_line("# This is an interesting comment."));
-	assert_eq!(Err(Error::NoValue), parse_line("I'm a strong, independent key and ain't no value gonna mess with me."));
-	assert_eq!(Err(Error::NoValue), parse_line(""));
+	assert_eq!(Some(("translation.test.none", "Hello, world!")), parse_line("translation.test.none=Hello, world!").unwrap());
+	assert_eq!(Some(("translation.test.none", "Hello, world!")), parse_line("translation.test.none=Hello, world!=whatever").unwrap());
+	assert_eq!(Some((" translation.test.none", "Hello, world! ")), parse_line(" translation.test.none=Hello, world! ").unwrap());
+	assert_eq!(None, parse_line("# This is an interesting comment.").unwrap());
+	assert_eq!(None, parse_line("").unwrap());
+	
+	if let Error::NoValue = parse_line("I'm a strong, independent key and ain't no value gonna mess with me.").unwrap_err() {} else {panic!()};
 }

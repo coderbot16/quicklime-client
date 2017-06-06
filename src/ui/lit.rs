@@ -7,14 +7,20 @@ use serde::ser::{Serialize, Serializer};
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub struct Lit {
 	part: f32,
-	px: i32
+	px: i32,
+	tx: i32
 }
 
 impl Lit {
-	pub fn new(part: f32, px: i32) -> Self {
+	pub fn from_part(part: f32) -> Self {
+		Self::new(part, 0, 0)
+	}
+	
+	pub fn new(part: f32, px: i32, tx: i32) -> Self {
 		Lit {
 			part: part,
-			px: px
+			px: px,
+			tx: tx
 		}
 	}
 	
@@ -22,12 +28,38 @@ impl Lit {
 		self.px
 	}
 	
+	pub fn tx(&self) -> i32 {
+		self.tx
+	}
+	
 	pub fn part(&self) -> f32 {
 		self.part
 	}
 	
 	pub fn to_part(&self, scale: f32) -> f32 {
-		self.part + (self.px as f32)*scale
+		self.part + (self.px as f32)*scale + (self.tx as f32)/128.0
+	}
+	
+	fn handle_term(&mut self, op: char, term: &str) -> Result<(), ParseLitError> {
+		println!("term: {}, op: {}", term, op);
+		
+		if term.ends_with("px") {
+			let term = &term[..term.len() - 2];
+			let val = try!(term.parse::<i32>().map_err(ParseLitError::ParseInt));
+		
+			self.px += if op=='+' {val} else {-val};
+		} else if term.ends_with("tx") {
+			let term = &term[..term.len() - 2];
+			let val = try!(term.parse::<i32>().map_err(ParseLitError::ParseInt));
+		
+			self.tx += if op=='+' {val} else {-val};
+		} else {
+			let val =  try!(term.parse::<f32>().map_err(ParseLitError::ParseFloat));
+			
+			self.part += if op=='+' {val} else {-val};
+		};
+		
+		Ok(())
 	}
 }
 
@@ -39,6 +71,14 @@ impl<'de> Deserialize<'de> for Lit {
 			fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
 		        formatter.write_str("a string literal with the format \"X[.Z] [+ Ypx]\"")
 		    }
+			
+			fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E> where E: Error {
+				Ok(Lit { part: v, px: 0, tx: 0 })
+			}
+			
+			fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E> where E: Error {
+				Ok(Lit { part: v as f32, px: 0, tx: 0 })
+			}
 			
 			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: Error {
 				v.parse::<Lit>().map_err(|e| E::custom(format!("malformed literal: {}", v)))
@@ -60,24 +100,39 @@ impl Serialize for Lit {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseLitError {
 	ParseInt(ParseIntError),
-	ParseFloat(ParseFloatError)
+	ParseFloat(ParseFloatError),
+	DoubleOperator
 }
 
 impl FromStr for Lit {
 	type Err = ParseLitError;
 	
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
-		let mut lit = Lit { part: 0.0, px: 0 };
+		let mut lit = Lit { part: 0.0, px: 0, tx: 0 };
+		let mut start = Some(0);
+		let mut last_op = '+';
 		
-		for term in s.split('+').map(str::trim) {
-			if term.ends_with("px") {
-				// Remove prefix
-				let term = &term[..term.len() - 2];
+		for (index, char) in s.char_indices() {
+			if char=='+' || char== '-' {
+				let term = if let Some(start) = start {
+					&s[start..index]
+				} else {
+					return Err(ParseLitError::DoubleOperator)
+				};
 				
-				lit.px += try!(term.parse::<i32>().map_err(ParseLitError::ParseInt));
-			} else {
-				lit.part += try!(term.parse::<f32>().map_err(ParseLitError::ParseFloat));
+				try!(lit.handle_term(last_op, term.trim()));
+				last_op = char;
+				
+				start = None;
+			} else if start.is_none() {
+				start = Some(index);
 			}
+		}
+		
+		// Handle the last term.
+		if let Some(start) = start {
+			let term = &s[start..];
+			try!(lit.handle_term(last_op, term.trim()));
 		}
 		
 		Ok(lit)
@@ -86,16 +141,19 @@ impl FromStr for Lit {
 
 impl Display for Lit {
 	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-		write!(f, "{} + {}px", self.part, self.px)
+		write!(f, "{} + {}px + {}tx", self.part, self.px, self.tx)
 	}
 }
 
 #[test]
 fn test_parse_lit() {
-	assert_eq!(Ok(Lit::new(2.0, 0)), "1 + 1".parse::<Lit>());
-	assert_eq!(Ok(Lit::new(1.0, 1)), "1 + 1px".parse::<Lit>());
-	assert_eq!(Ok(Lit::new(1.0, 1)), "1px + 1".parse::<Lit>());
-	assert_eq!(Ok(Lit::new(1.0, 1)), "1+1px".parse::<Lit>());
-	assert_eq!(Ok(Lit::new(1.0, 1)), "1px+1".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(2.0, 0, 0)), "1 + 1".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(1.0, 1, 0)), "1 + 1px".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(1.0, 1, 0)), "1px + 1".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(1.0, 1, 0)), "1+1px".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(1.0, 1, 0)), "1px+1".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(-1.0, 1, 0)), "1px-1".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(0.0, 0, 0)), "1 - 1".parse::<Lit>());
+	assert_eq!(Ok(Lit::new(1.0, 0, -23)), "1 - 23tx".parse::<Lit>());
 	"1 + 1.0px".parse::<Lit>().unwrap_err();
 }

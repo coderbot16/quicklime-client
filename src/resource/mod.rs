@@ -1,3 +1,5 @@
+pub mod atlas;
+
 use std::fs::File;
 use std::path::{PathBuf, Path, Component};
 use std::ffi::OsStr;

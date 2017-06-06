@@ -2,6 +2,7 @@
 extern crate serde_derive;
 
 extern crate serde;
+#[macro_use]
 extern crate serde_json;
 extern crate glutin;
 
@@ -13,119 +14,41 @@ mod text;
 mod ui;
 mod render2d;
 mod directory;
+mod color;
+
+use color::{Rgb, Rgba};
 //mod scoreboard;
 
 use render2d::Rect;
 
 use text::language;
-use text::render::Command;
 use std::fs::File;
 use input::Screen;
 use glutin::Event;
-use std::io::{BufRead, BufReader};
-use ui::{Scene, State, Element, Kind, Coloring};
+use std::io::BufReader;
+use ui::{Vertex, Scene, State, Element, Kind, Coloring};
 use ui::lit::Lit;
+use ui::render::Context;
+use resource::atlas::{self, Texmap};
 mod resource;
-use resource::Asset;
 
 #[macro_use]
 extern crate gfx;
 extern crate gfx_window_glutin;
 
 use gfx::{Device, Encoder};
-use gfx::traits::{FactoryExt, Factory};
-use gfx::texture;
 
 extern crate memmap;
 extern crate image;
 use image::ImageFormat;
 
-pub type ColorFormat = gfx::format::Rgba8;
+pub type ColorFormat = (gfx::format::R8_G8_B8_A8, gfx::format::Srgb);
 pub type DepthFormat = gfx::format::DepthStencil;
-
-gfx_defines!{
-    vertex Vertex {
-        pos: [f32; 4] = "a_Pos",
-        color: [f32; 3] = "a_Color",
-        tex: [f32; 2] = "at_tex_coord",
-    }
-
-    constant Transform {
-        transform: [[f32; 4];4] = "u_Transform",
-    }
-
-    pipeline pipe {
-        vbuf: gfx::VertexBuffer<Vertex> = (),
-        transform: gfx::ConstantBuffer<Transform> = "Transform",
-        out: gfx::BlendTarget<ColorFormat> = ("Target0", gfx::state::MASK_ALL, gfx::preset::blend::ALPHA),
-        tex: gfx::TextureSampler<[f32; 4]> = "s_texture",
-    }
-}
-
-const VERTEX_SHADER: &str = "
-#version 150 core
-
-in vec4 a_Pos;
-in vec3 a_Color;
-in vec2 at_tex_coord;
-
-uniform Transform {
-    mat4 u_Transform;
-};
-
-out vec4 v_Color;
-out vec2 v_tex_coord;
-
-void main() {
-	v_tex_coord = at_tex_coord;
-    v_Color = vec4(a_Color, 1.0);
-    gl_Position = a_Pos * u_Transform;
-}
-";
-
-const FRAGMENT_SHADER: &str = "
-#version 150 core
-
-uniform sampler2D s_texture;
-
-in vec4 v_Color;
-in vec2 v_tex_coord;
-
-out vec4 Target0;
-
-void main() {
-	vec4 tex_color = texture(s_texture, v_tex_coord);
-	
-	if(v_tex_coord == vec2(0, 0)) {
-		// TODO: this should be a seperate shader.
-		Target0 = v_Color;
-	} else {
-		Target0 = tex_color * v_Color;
-	}
-}
-";
-
-/*const TRIANGLE: [Vertex; 3] = [
-	   /* Vertex { pos: [ -0.5, -0.5, -0.5, 1.0], color: [1.0, 0.0, 0.0] },
-	    Vertex { pos: [  0.5, -0.5, -0.5, 1.0], color: [0.0, 1.0, 0.0] },
-	    Vertex { pos: [  0.0,  0.5, -0.5, 1.0 ], color: [0.0, 0.0, 1.0] }*/
-	];*/
 
 fn main() {
 	// minimum width: 320x240
 	
 	println!("Starting quicklime-client version 0.0.1");
-	
-	/*let sv_cheats = Kind::Int {low: 0, high: 1};
-	let ok = "1";
-	let bad = "100";
-	
-	println!("{:?}", sv_cheats.parse(ok));
-	println!("{:?}", sv_cheats.parse(bad));*/
-	
-	/*let mut screen = Screen::new();
-	//let sp_slice = ScreenSlice {x_min: -0.2, x_max: 0.2, y_min: -0.2, y_max: 0.2};
-	//let mp_slice = ScreenSlice {x_min: -0.2, x_max: 0.2, y_min: -0.5, y_max: -0.3};
 
 	let file = File::open("/home/coderbot/eclipseRust/workspace/quicklime-client/assets/minecraft/font/glyph_sizes.bin").unwrap();
 	let glyph_metrics = text::metrics::GlyphMetrics::from_file(&file).unwrap();
@@ -135,31 +58,11 @@ fn main() {
 	let mut style = text::style::Style::new();
 	style.color = text::style::Color::Palette(text::style::PaletteColor::White);
 	
-	// TODO: Bold doesn't work.
-	//style.flags = style.flags.set_bold(true);
-	
 	let page_0_file = File::open("/home/coderbot/eclipseRust/workspace/quicklime-client/assets/minecraft/textures/font/unicode_page_00.png").unwrap();
-	let page_0 = image::load(BufReader::new(page_0_file), ImageFormat::PNG).expect("failed to load image").flipv();
-	let rgba = page_0.to_rgba();
+	let widgets_file = File::open("assets/minecraft/textures/gui/widgets.png").unwrap();
 	
-	let mut page_0_raw = Vec::with_capacity(256*256);
-	
-	for (x, y, pixel) in rgba.enumerate_pixels() {
-		page_0_raw.push(pixel.data);
-	}
-	
-	//let vertex_data: Vec<Vertex> = 
-	//	sp_slice.as_triangles(-0.5).into_iter()
-	//	.chain(mp_slice.as_triangles(-0.5).into_iter())
-	//	.map(|pos| Vertex {pos: *pos, color: [1.0, 1.0, 1.0]} )
-	//	.collect(); 
-
-	for m in glutin::get_available_monitors() {
-		println!("Monitor name: {:?}", m.get_name())
-	}
-
-	//screen.add_interact_area(Area { id: "singleplayer".to_string(), slice: sp_slice });
-	//screen.add_interact_area(Area { id: "multiplayer".to_string(), slice: mp_slice });
+	let page_0 = image::load(BufReader::new(page_0_file), ImageFormat::PNG).expect("failed to load image").flipv().to_rgba().into_raw();
+	let widgets = image::load(BufReader::new(widgets_file), ImageFormat::PNG).expect("failed to load image").flipv().to_rgba().into_raw();
 	
 	let builder = glutin::WindowBuilder::new()
         .with_title("quicklime-client [Minecraft 1.10.2]".to_string())
@@ -170,102 +73,113 @@ fn main() {
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder);
         
 	let mut last_half_size = (960.0, 540.0);
-	let scale_factor = 16.0;
 	
+	let scale_factor = 1.0;
 	let scale = ((1.0 / last_half_size.0) * scale_factor, (1.0 / last_half_size.1) * scale_factor);
 	
-	let mut vertex_data: Vec<Vertex> = Vec::new();
+	let mut rect_data: Vec<Vertex> = Vec::new();
 	
-	for command in ctxt.render(1.0, -1.0, "Hello World!".chars(), &style, true, [0.247058824,0.247058824,0.247058824]).filter_map(|x| x).chain(
-		ctxt.render(0.0, 0.0, "Hello World!".chars(), &style, false, [1.0, 1.0, 1.0]).filter_map(|x| x)
-	) {
-		println!("{:?}", command);
-		match command {
-			Command::Char( ref draw_command ) => {
-				let (quad, atlas) = draw_command.to_quad(scale); 
-				if atlas != 0 {
-					panic!("TODO: Multiple atlas support")
-				}
-				
-				vertex_data.extend (
-					quad
-					.as_triangles()
-					.iter()
-					.map(|vertex| Vertex { pos: [vertex.pos[0], vertex.pos[1], -0.5, 1.0], color: vertex.color, tex: vertex.tex })
-				);
-			},
-			Command::CharDefault { .. } => panic!("Can't draw default chars"),
-			Command::Rect { x, y, width, height } => {
-				let (x, y) = (x * scale.0, y * scale.1);
-				let (width, height) = (width * scale.0, height * scale.1);
-				
-				vertex_data.extend (
-					Rect::solid([x, y], [x + width, y + height], [1.0, 1.0, 1.0])
+	let mut sfc = 0.0;
+	let texmap: atlas::TexmapBucket = serde_json::from_reader(File::open("resources/texmaps/gui.json").unwrap()).unwrap();
+	if let Some(texmap) = texmap.0.get("minecraft:textures/gui/widgets.png") {
+		for (k, v) in texmap.0.iter() {
+			let min = [v.min[0].to_part(0.0), v.min[1].to_part(0.0)];
+			let size = [v.size[0].to_part(0.0), v.size[1].to_part(0.0)];
+			sfc += size[0] * size[1] * 16384.0;
+			
+			let color = {
+				[0.25 + (min[0]*16.0)%0.5, 0.25 + (min[1]*16.0)%0.5, 0.25 + (min[0]*16.0)%0.5]
+			};
+			
+			let min = [min[0] * 0.5625, min[1]];
+			let size = [size[0] * 0.5625, size[1]];
+			let max = [min[0] + size[0], min[1] + size[1]];
+			
+			let width = scale.0 * 2.0;
+			let height = scale.1 * 2.0;
+			
+			let rects = [
+				Rect::solid(min, [min[0] + width, max[1]], color),
+				Rect::solid(min, [max[0], min[1] + height], color),
+				Rect::solid([max[0] - width, min[1]], [max[0], min[1] + size[1]], color),
+				Rect::solid([min[0], max[1] - height], [min[0] + size[0], max[1]], color),
+			];
+			
+			/*for r in rects.iter() {
+				rect_data.extend (
+					r
 					.as_quad()
 					.as_triangles()
 					.iter()
-					.map(|vertex| Vertex { pos: [vertex.pos[0], vertex.pos[1], -0.5, 1.0], color: vertex.color, tex: vertex.tex })
-				)
-			},
+					.map(|vertex| Vertex { pos: [vertex.pos[0], vertex.pos[1], 0.2], color: vertex.color, tex: vertex.tex })
+				);
+			}*/
+			
+			println!("{}: {:?}", k, v);
 		}
 	}
 	
-	let pso = factory.create_pipeline_simple(
-        VERTEX_SHADER.as_bytes(),
-        FRAGMENT_SHADER.as_bytes(),
-        pipe::new()
-    ).unwrap();
+	println!("SFC: {} / 65536.0 ({}%)", sfc, (sfc/65536.0)*100.0);
 	
 	let mut encoder: Encoder<_, _> = factory.create_command_buffer().into();
 	
-	// Identity matrix	
-	const TRANSFORM: Transform = Transform {
-	    transform: [[1.0, 0.0, 0.0, 0.0],
-	                [0.0, 1.0, 0.0, 0.0],
-	                [0.0, 0.0, 1.0, 0.0],
-	                [0.0, 0.0, 0.0, 1.0]]
+	// TODO: Transparency sorting.
+	let mut context = Context::create(&mut factory, main_color.clone(), main_depth.clone());
+	context.add_texture(&mut factory, texmap.0.get("minecraft:textures/gui/widgets.png").unwrap(), &widgets);
+	context.add_texture(&mut factory, &Texmap::new("unicode_page_00".to_owned()), &page_0);
+	context.new_zone();
+	context.extend_zone(rect_data.iter().map(|x| *x), None);
+	
+	let mut state = ui::State {
+		name: "button_0".to_owned(),
+		center: (Lit::from_part(0.0), Lit::from_part(0.0)),
+		extents: (Lit::new(0.0, 200, 0), Lit::new(0.0, 20, 0)),
+		color: Coloring::Solid(Rgb::new(0xFF, 0xFF, 0xFF)),
+		kind: Kind::Image { texture: "button_hovered".to_owned(), slice: input::ScreenSlice {x_min: 0.0, x_max: 1.0, y_min: 0.0, y_max: 1.0} },
+		zone_id: None
 	};
 	
-	let (_, texture_view) = factory.create_texture_immutable::<ColorFormat>(
-        texture::Kind::D2(256, 256, texture::AaMode::Single),
-        &[&page_0_raw as &[[u8; 4]]]
-        ).unwrap();
-
-    let sampler = factory.create_sampler(texture::SamplerInfo::new(
-        texture::FilterMethod::Scale,
-        texture::WrapMode::Tile,
-    ));
+	let data = json! ({
+		"name": "button_0_text",
+		"center": [ 0.0, 0.0 ],
+		"extents": [ "200px", "20px" ],
+		"color": { "Solid": 16777120 },
+		"kind": {
+			"Text": {
+				"string": "Singleplayer"
+			}
+		}
+	});
 	
-	let (vertex_buffer, slice) = factory.create_vertex_buffer_with_slice(&vertex_data, ());
-	let transform_buffer = factory.create_constant_buffer(1);
-	let data = pipe::Data {
-		tex: (texture_view, sampler),
-	    vbuf: vertex_buffer,
-	    transform: transform_buffer,
-	    out: main_color,
-	};
+	let mut text = serde_json::from_value::<State>(data).unwrap();
 	
-	encoder.update_buffer(&data.transform, &[TRANSFORM], 0).expect("Failed to update transform buffer");
+	state.push_to(scale, 0.3, &mut context, &metrics);
+	text.push_to(scale, 0.1, &mut context, &metrics);
 	
 	'main: loop {
 		for event in window.poll_events() {
 			match event {
 				Event::Closed => break 'main,
 				Event::Resized(x, y) => {println!("New window size: {}, {}", x, y); last_half_size = (x as f32 / 2.0, y as f32 / 2.0)},
-				Event::MouseMoved(x, y) => screen.position((x as f32) / (last_half_size.0 as f32) - 1.0, 1.0 - (y as f32) / (last_half_size.1 as f32)),
-				Event::MouseInput(state, button) => screen.mouse_click(state, button),
+				Event::MouseMoved(x, y) => /*screen.position((x as f32) / (last_half_size.0 as f32) - 1.0, 1.0 - (y as f32) / (last_half_size.1 as f32))*/(),
+				//Event::MouseInput(state, button) => screen.mouse_click(state, button),
 				_ => println!("ev: {:?}", event)
 			}
 		}
 		
-		// 9bc6fe
-		encoder.clear(&data.out, [(0x9b as f32) / 255.0, (0xc6 as f32) / 255.0, (0xfe as f32) / 255.0, 1.0]);
-		encoder.draw(&slice, &pso, &data);
+		let sky = Rgba::new(0x9b, 0xc6, 0xfe, 0xff);
+		
+		encoder.clear(&main_color, sky.to_linear());
+		encoder.clear_depth(&main_depth, 1.0);
+		context.render(&mut factory, &mut encoder);
+		
 		encoder.flush(&mut device);
+		
+		// clear depth
 		
 		window.swap_buffers().unwrap();
 		device.cleanup();
-	}*/
+	}
 	
 	/*use text::flat::{Component, ChatBuf, Kind, Mode};
 	use text::style::Style;
@@ -316,37 +230,9 @@ fn main() {
 	
 	println!("{}", serde_json::to_string(&scene).unwrap());*/
 	
-	let name = "assets/minecraft/lang/en_US.lang";
+	/*let name = "assets/minecraft/lang/en_US.lang";
 	let mut read = File::open(name).unwrap();
 	let mut dir = language::Directory::load(&mut read, name).unwrap();
 	
-	print_helper(None, dir.root(), -1);
-}
-
-use text::language::Node;
-
-fn print_helper(name: Option<&str>, node: &Node, level: isize) {
-	for _ in 0..level {
-		print!("\t")
-	}
-	
-	if let Some(name) = name {
-		print!("{}", name);
-	}
-	
-	if let Some(value) = node.get() {
-		match value {
-			&Ok(ref v) => println!(": {}", v),
-			&Err(ref e) => println!(": [error]\n{}", e)
-		}
-		
-	} else {
-		println!();
-	}
-	
-	if let Some(vals) = node.iter() {
-		for (k, v) in vals {
-			print_helper(Some(k), v, level + 1);
-		}
-	}
+	print_helper(None, dir.root(), -1);*/
 }

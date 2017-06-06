@@ -31,14 +31,22 @@ impl<R> ManagedBuffer<R> where R: Resources {
 		}
 	}
 	
-	pub fn push_zone(&mut self, buffer: &[Vertex]) -> usize {
-		let zone = Zone { start: self.tail, size: buffer.len() };
-		self.tail += zone.size;
-		
-		self.local.extend(buffer);
-		self.zones.push((zone, true));
-		
+	pub fn new_zone(&mut self) -> usize {
+		self.zones.push((Zone {start: self.tail, size: 0}, true));
 		self.zones.len() - 1
+	}
+	
+	pub fn replace_zone(&mut self, buffer: &[Vertex], zone: usize) {
+		let (ref mut zone, ref mut dirty) = self.zones[zone];
+		*dirty = true;
+		
+		if zone.size == buffer.len() {
+			let slice = &mut self.local[zone.start..zone.start + zone.size];
+			slice.copy_from_slice(buffer);
+		} else {
+			// TODO: Shift later elements forward or backwards.
+			unimplemented!()
+		}
 	}
 	
 	fn get_zone(&self, index: usize) -> &[Vertex] {
@@ -83,6 +91,40 @@ impl<R> ManagedBuffer<R> where R: Resources {
 			base_vertex: 0,
 			instances: None,
 			buffer: IndexBuffer::Auto
+		}
+	}
+}
+
+impl<R> Extend<Vertex> for ManagedBuffer<R> where R: Resources {
+	fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=Vertex> {
+		if let Some(zone) = self.zones.last_mut() {
+			let old_len = self.local.len();
+			
+			self.local.extend(iter);
+			let len = self.local.len() - old_len;
+		
+			zone.0.size += len;
+			zone.1 = true;
+			self.tail += len;
+		} else {
+			panic!("Tried to extend to a previously created zone, but there are no zones.");
+		}
+	}
+}
+
+impl<'a, R> Extend<&'a Vertex> for ManagedBuffer<R> where R: Resources {
+	fn extend<I>(&mut self, iter: I) where I: IntoIterator<Item=&'a Vertex> {
+		if let Some(zone) = self.zones.last_mut() {
+			let old_len = self.local.len();
+			
+			self.local.extend(iter);
+			let len = self.local.len() - old_len;
+		
+			zone.0.size += len;
+			zone.1 = true;
+			self.tail += len;
+		} else {
+			panic!("Tried to extend to a previously created zone, but there are no zones.");
 		}
 	}
 }

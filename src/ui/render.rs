@@ -4,10 +4,8 @@ use ui::managed::ManagedBuffer;
 use gfx::handle::{ShaderResourceView, Sampler, RenderTargetView, DepthStencilView};
 use gfx::texture;
 use gfx::format::Formatted;
-
-pub use self::textured_pipe as pipe;
-pub use self::VERTEX_SHADER_TEX as VERTEX_SHADER;
-pub use self::FRAGMENT_SHADER_TEX as FRAGMENT_SHADER;
+use resource::atlas::{Texmap, TextureSelection};
+use std::collections::HashMap;
 
 use ColorFormat;
 use DepthFormat;
@@ -65,60 +63,118 @@ impl<R> TexturedPipe<R> where R: Resources {
 	}
 }
 
-struct SolidPipe<R> where R: Resources {
+pub struct SolidPipe<R> where R: Resources {
 	buffer: ManagedBuffer<R>,
 	state: PipelineState<R, solid_pipe::Meta>,
 	data: solid_pipe::Data<R>
 }
 
-struct Context<R> where R: Resources {
-	solid: SolidPipe<R>,
-	textured: Vec<TexturedPipe<R>>
-}
-
-impl<R> Context<R> where R: Resources {
-	fn create<F>(factory: &mut F, image: &[u8]) where F: Factory<R> + FactoryExt<R> {
-		let textured = factory.create_pipeline_simple(
-	        VERTEX_SHADER_TEX.as_bytes(),
-	        FRAGMENT_SHADER_TEX.as_bytes(),
-	        textured_pipe::new()
-	    );
-		
-		let solid = factory.create_pipeline_simple(
+impl<R> SolidPipe<R> where R: Resources {
+	pub fn create<F>(factory: &mut F, out: RenderTargetView<R, ColorFormat>, out_depth: DepthStencilView<R, DepthFormat>) -> Self where F: Factory<R> + FactoryExt<R> {
+		let state = factory.create_pipeline_simple(
 	        VERTEX_SHADER_SOLID.as_bytes(),
 	        FRAGMENT_SHADER_SOLID.as_bytes(),
 	        solid_pipe::new()
-	    );
+	    ).unwrap();
 		
 		let buffer = ManagedBuffer::new(factory);
 		
-		let (_, texture_view) = factory.create_texture_immutable_u8::<(gfx::format::R8_G8_B8_A8, gfx::format::Srgb)>(
-			texture::Kind::D2(256, 256, texture::AaMode::Single),
-			&[image]
-		).unwrap();
-
-		let sampler = factory.create_sampler(texture::SamplerInfo::new(
-			texture::FilterMethod::Scale,
-			texture::WrapMode::Tile,
-		));
-    
-	    /*let tex_data = textured_pipe::Data {
-			vbuf: vertex_buffer,
-			out: main_color,
-			tex: (texture_view, sampler),
-			// TODO: Depth
-		};*/
-    
-	    /*let data = pipe::Data {
-			tex: (texture_view, sampler),
-			vbuf: vertex_buffer,
-			out: main_color,
-			// TODO: Depth
-		};*/
+	    let data = solid_pipe::Data {
+			buffer: buffer.remote().clone(),
+			out: out,
+			out_depth: out_depth
+		};
+	    
+	    SolidPipe {
+	    	buffer: buffer,
+	    	state: state,
+	    	data: data
+	    }
 	}
 	
-	fn render<F, C>(&self, factory: &mut F, encoder: &mut Encoder<R, C>) where F: Factory<R> + FactoryExt<R>, C: CommandBuffer<R> {
+	pub fn buffer_mut(&mut self) -> &mut ManagedBuffer<R> {
+		&mut self.buffer
+	}
+	
+	pub fn render<F, C>(&mut self, factory: &mut F, encoder: &mut Encoder<R, C>) where F: Factory<R> + FactoryExt<R>, C: CommandBuffer<R> {
+		self.buffer.update(factory, encoder);
+		self.data.buffer = self.buffer.remote().clone();
 		
+		encoder.draw(&self.buffer.slice(), &self.state, &self.data);
+	}
+}
+
+pub struct Context<R> where R: Resources {
+	out: RenderTargetView<R, ColorFormat>,
+	out_depth: DepthStencilView<R, DepthFormat>,
+	solid: SolidPipe<R>,
+	textured: Vec<TexturedPipe<R>>,
+	textures: HashMap<String, (usize, TextureSelection)>
+}
+
+impl<R> Context<R> where R: Resources {
+	pub fn create<F>(factory: &mut F, out: RenderTargetView<R, ColorFormat>, out_depth: DepthStencilView<R, DepthFormat>) -> Self where F: Factory<R> + FactoryExt<R> {
+		Context {
+			out: out.clone(),
+			out_depth: out_depth.clone(),
+			solid: SolidPipe::create(factory, out.clone(), out_depth.clone()),
+			textured: Vec::new(),
+			textures: HashMap::new()
+		}
+	}
+	
+	pub fn new_zone(&mut self) -> usize {
+		let zone = self.solid.buffer_mut().new_zone();
+		
+		for pipe in &mut self.textured {
+			pipe.buffer_mut().new_zone();
+		}
+		
+		zone
+	}
+	
+	pub fn extend_zone<I>(&mut self, iter: I, texture: Option<&str>) -> bool where I: IntoIterator<Item=Vertex> {
+		if let Some(texture) = texture {
+			if let Some(&(index, selection)) = self.textures.get(texture) {
+				Self::extend_textured(&mut self.textured[index], iter, selection);
+				
+				true
+			} else {
+				false
+			}
+		} else {
+			self.solid.buffer_mut().extend(iter);
+			
+			true
+		}
+	}
+	
+	fn extend_textured<I>(pipe: &mut TexturedPipe<R>, iter: I, selection: TextureSelection) where I: IntoIterator<Item=Vertex> {
+		pipe.buffer_mut().extend(iter.into_iter().map(|v| {let v = Vertex { 
+			pos: v.pos, 
+			color: v.color, 
+			tex: [
+				(selection.min[0].to_part(0.0) + v.tex[0] * selection.size[0].to_part(0.0) + 1.0) / 2.0,
+				(selection.min[1].to_part(0.0) + v.tex[1] * selection.size[1].to_part(0.0) + 1.0) / 2.0
+			]
+		}; println!("{:?}", v); v}))
+	}
+	
+	pub fn add_texture<F>(&mut self, factory: &mut F, texmap: &Texmap, texture: &[u8]) where F: Factory<R> + FactoryExt<R> {
+		let index = self.textured.len();
+		self.textured.push(TexturedPipe::create(factory, texture, self.out.clone(), self.out_depth.clone()));
+		
+		for (k, v) in texmap.0.iter() {
+			self.textures.insert(k.clone(), (index, *v));
+		}
+	}
+	
+	pub fn render<F, C>(&mut self, factory: &mut F, encoder: &mut Encoder<R, C>) where F: Factory<R> + FactoryExt<R>, C: CommandBuffer<R> {
+		self.solid.render(factory, encoder);
+		
+		for pipe in &mut self.textured {
+			pipe.render(factory, encoder);
+		}
 	}
 }
 
@@ -143,7 +199,7 @@ gfx_defines!{
     }
 }
 
-pub const VERTEX_SHADER_TEX: &str = "
+const VERTEX_SHADER_TEX: &str = "
 #version 150 core
 
 in vec3 a_Pos;
@@ -160,7 +216,7 @@ void main() {
 }
 ";
 
-pub const FRAGMENT_SHADER_TEX: &str = "
+const FRAGMENT_SHADER_TEX: &str = "
 #version 150 core
 
 uniform sampler2D Texture;
@@ -185,7 +241,7 @@ out vec4 v_Color;
 
 void main() {
     v_Color = vec4(a_Color, 1.0);
-    gl_Position = a_Pos;
+    gl_Position = vec4(a_Pos, 1.0);
 }
 ";
 
