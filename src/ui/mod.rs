@@ -2,6 +2,7 @@ pub mod lit;
 pub mod render;
 pub mod managed;
 pub use self::render::Vertex as Vertex;
+pub mod input;
 
 use input::ScreenSlice;
 use std::rc::Rc;
@@ -17,10 +18,12 @@ use text::style::{StyleFlags, Style};
 use text::pages::PAGES;
 use text::align::Align;
 use color::{Rgb, Rgba};
+use input::InputState;
 
 #[derive(Serialize, Deserialize)]
 pub struct Scene {
-	pub elements: HashMap<String, Element>
+	pub elements: HashMap<String, Element>,
+	pub inputs: HashMap<String, Input>
 }
 
 impl Scene {

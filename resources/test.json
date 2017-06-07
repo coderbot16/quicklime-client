@@ -1,0 +1,87 @@
+{
+	"parameters": {
+		"color": "str",
+		"text": "str",
+		"center": "arr",
+		"actions": "arr"
+	},
+	"elements": {
+		"image": {
+			"default": {
+				"name": "default",
+				"center": "%center%",
+				"extents": [ "200px", "20px" ],
+				"color": { "Solid": 16777215 },
+				"kind": {
+					"Image": {
+						"texture": "button",
+						"slice": {
+							"x_min": 0.0, 
+							"x_max": 1.0, 
+							"y_min": 0.0, 
+							"y_max": 1.0
+						}
+					}
+				}
+			},
+			"states": [
+				{
+					"name": "hovered",
+					"center": "%center%",
+					"extents": [ "200px", "20px" ],
+					"color": { "Solid": 16777215 },
+					"kind": {
+						"Image": {
+							"texture": "button_hovered",
+							"slice": {
+								"x_min": 0.0, 
+								"x_max": 1.0, 
+								"y_min": 0.0, 
+								"y_max": 1.0
+							}
+						}
+					}
+				}
+			]
+		},
+		"text": {
+			"default": {
+				"name": "default",
+				"center": "%center%",
+				"extents": [ "200px", "20px" ],
+				"color": { "Solid": "%color%" },
+				"kind": {
+					"Text": {
+						"string": "%text%"
+					}
+				}
+			},
+			"states": []
+		}
+	},
+	"inputs": {
+		"button": {
+			"default": {
+				"name": "default",
+				"center": "%center%",
+				"extents": [ "200px", "20px" ],
+				"events": [
+					{ "event": "Enter", "action": {"SetElementState": {"element": "image", "state": "hovered"} } },
+					{ "event": "Enter", "action": {"SetInputState": {"element": "button", "state": "hovered"} } }
+				]
+			},
+			"states": [
+				{
+					"name": "hovered",
+					"center": "%center%",
+					"extents": [ "200px", "20px" ],
+					"events": [
+						{ "event": "Leave", "action": {"SetElementState": {"element": "image", "state": "default"} } },
+						{ "event": "Leave", "action": {"SetInputState": {"element": "button", "state": "default"} } },
+						"$actions$"
+					]
+				}
+			]
+		}
+	}
+}

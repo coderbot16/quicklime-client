@@ -121,6 +121,9 @@ fn main() {
 	
 	println!("SFC: {} / 65536.0 ({}%)", sfc, (sfc/65536.0)*100.0);
 	
+	let test_file = File::open("resources/test.json").unwrap();
+	let mut test = serde_json::from_reader::<File, Scene>(test_file).unwrap();
+	
 	let mut encoder: Encoder<_, _> = factory.create_command_buffer().into();
 	
 	// TODO: Transparency sorting.
@@ -130,31 +133,12 @@ fn main() {
 	context.new_zone();
 	context.extend_zone(rect_data.iter().map(|x| *x), None);
 	
-	let mut state = ui::State {
-		name: "button_0".to_owned(),
-		center: (Lit::from_part(0.0), Lit::from_part(0.0)),
-		extents: (Lit::new(0.0, 200, 0), Lit::new(0.0, 20, 0)),
-		color: Coloring::Solid(Rgb::new(0xFF, 0xFF, 0xFF)),
-		kind: Kind::Image { texture: "button_hovered".to_owned(), slice: input::ScreenSlice {x_min: 0.0, x_max: 1.0, y_min: 0.0, y_max: 1.0} },
-		zone_id: None
-	};
+	let mut depth = 1.0;
 	
-	let data = json! ({
-		"name": "button_0_text",
-		"center": [ 0.0, 0.0 ],
-		"extents": [ "200px", "20px" ],
-		"color": { "Solid": 16777120 },
-		"kind": {
-			"Text": {
-				"string": "Singleplayer"
-			}
-		}
-	});
-	
-	let mut text = serde_json::from_value::<State>(data).unwrap();
-	
-	state.push_to(scale, 0.3, &mut context, &metrics);
-	text.push_to(scale, 0.1, &mut context, &metrics);
+	for (name, element) in &mut test.elements {
+		element.default.push_to(scale, depth, &mut context, &metrics);
+		depth /= 2.0;
+	}
 	
 	'main: loop {
 		for event in window.poll_events() {
