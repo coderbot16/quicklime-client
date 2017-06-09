@@ -50,7 +50,7 @@ fn main() {
 	
 	println!("Starting quicklime-client version 0.0.1");
 
-	let file = File::open("/home/coderbot/eclipseRust/workspace/quicklime-client/assets/minecraft/font/glyph_sizes.bin").unwrap();
+	let file = File::open("assets/minecraft/font/glyph_sizes.bin").unwrap();
 	let glyph_metrics = text::metrics::GlyphMetrics::from_file(&file).unwrap();
 	let metrics = text::metrics::Metrics::unicode(glyph_metrics);
 	
@@ -58,7 +58,7 @@ fn main() {
 	let mut style = text::style::Style::new();
 	style.color = text::style::Color::Palette(text::style::PaletteColor::White);
 	
-	let page_0_file = File::open("/home/coderbot/eclipseRust/workspace/quicklime-client/assets/minecraft/textures/font/unicode_page_00.png").unwrap();
+	let page_0_file = File::open("assets/minecraft/textures/font/unicode_page_00.png").unwrap();
 	let widgets_file = File::open("assets/minecraft/textures/gui/widgets.png").unwrap();
 	
 	let page_0 = image::load(BufReader::new(page_0_file), ImageFormat::PNG).expect("failed to load image").flipv().to_rgba().into_raw();
@@ -68,13 +68,17 @@ fn main() {
         .with_title("quicklime-client [Minecraft 1.10.2]".to_string())
         //.with_dimensions(1920, 1080)
         .with_fullscreen(glutin::get_primary_monitor())
-        .with_vsync();
+        .with_vsync()
+        .with_gl(glutin::GlRequest::GlThenGles {
+        	opengl_version: (2, 1),
+        	opengles_version: (2, 1)	
+        });
     let (window, mut device, mut factory, main_color, main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder);
         
-	let mut last_half_size = (960.0, 540.0);
+	let mut last_half_size = (683.0, 384.0);
 	
-	let scale_factor = 1.0;
+	let scale_factor = 2.0;
 	let scale = ((1.0 / last_half_size.0) * scale_factor, (1.0 / last_half_size.1) * scale_factor);
 	
 	let mut rect_data: Vec<Vertex> = Vec::new();
@@ -122,7 +126,23 @@ fn main() {
 	println!("SFC: {} / 65536.0 ({}%)", sfc, (sfc/65536.0)*100.0);
 	
 	let test_file = File::open("resources/test.json").unwrap();
-	let mut test = serde_json::from_reader::<File, Scene>(test_file).unwrap();
+	let test_org = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_file).unwrap();
+	
+	let mut data = ::std::collections::HashMap::new();
+	data.insert("color".to_owned(), json!(16777215));
+	data.insert("text".to_owned(), json!("Hello World!"));
+	data.insert("center".to_owned(), json!([0.0, 0.5]));
+	data.insert("actions".to_owned(), json!([]));
+	
+	let mut test = test_org.complete(&data).unwrap();
+	
+	let mut data2 = ::std::collections::HashMap::new();
+	data2.insert("color".to_owned(), json!(16777215));
+	data2.insert("text".to_owned(), json!(">> A very long text test <<"));
+	data2.insert("center".to_owned(), json!([0.0, -0.5]));
+	data2.insert("actions".to_owned(), json!([]));
+	
+	let mut test2 = test_org.complete(&data2).unwrap();
 	
 	let mut encoder: Encoder<_, _> = factory.create_command_buffer().into();
 	
@@ -135,8 +155,10 @@ fn main() {
 	
 	let mut depth = 1.0;
 	
-	for (name, element) in &mut test.elements {
-		element.default.push_to(scale, depth, &mut context, &metrics);
+	let scenes = ::std::collections::HashMap::new();
+	
+	for (name, element) in (&mut test.elements).iter_mut().chain(&mut test2.elements) {
+		element.default.push_to(scale, depth, &mut context, &metrics, &scenes);
 		depth /= 2.0;
 	}
 	

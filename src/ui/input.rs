@@ -1,5 +1,13 @@
+use ui::lit::Lit;
+
 #[derive(Serialize, Deserialize)]
-struct InputState {
+pub struct Input {
+	default: InputState,
+	states: Vec<InputState>
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct InputState {
 	name: String,
 	center: (Lit, Lit),
 	extents: (Lit, Lit),

@@ -18,11 +18,13 @@ impl Align {
 
 #[test]
 fn test_left() {
-	let area_width = 128;
-	let str_width = 32;
+	let area_width = 128.0;
+	let str_width = 32.0;
 	
 	let align = Align::Left;
 	for x in 0..256 {
+		let x = x as f32;
+		
 		let start_x = align.start_x(x, x+area_width, str_width);
 		let x_max = x + area_width;
 		
@@ -33,11 +35,13 @@ fn test_left() {
 
 #[test]
 fn test_right() {
-	let area_width = 128;
-	let str_width = 32;
+	let area_width = 128.0;
+	let str_width = 32.0;
 	
 	let align = Align::Right;
 	for x in 0..256 {
+		let x = x as f32;
+		
 		let start_x = align.start_x(x, x+area_width, str_width);
 		let x_max = x + area_width;
 		
@@ -48,11 +52,13 @@ fn test_right() {
 
 #[test]
 fn test_center() {
-	let area_width = 128;
-	let str_width = 32;
+	let area_width = 128.0;
+	let str_width = 32.0;
 	
 	let align = Align::Center;
 	for x in 0..256 {
+		let x = x as f32;
+		
 		let start_x = align.start_x(x, x+area_width, str_width);
 		let x_max = x + area_width;
 		

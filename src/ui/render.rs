@@ -200,7 +200,7 @@ gfx_defines!{
 }
 
 const VERTEX_SHADER_TEX: &str = "
-#version 150 core
+#version 130
 
 in vec3 a_Pos;
 in vec3 a_Color;
@@ -217,7 +217,7 @@ void main() {
 ";
 
 const FRAGMENT_SHADER_TEX: &str = "
-#version 150 core
+#version 130
 
 uniform sampler2D Texture;
 
@@ -232,7 +232,7 @@ void main() {
 ";
 
 const VERTEX_SHADER_SOLID: &str = "
-#version 150 core
+#version 130
 
 in vec3 a_Pos;
 in vec3 a_Color;
@@ -246,7 +246,7 @@ void main() {
 ";
 
 const FRAGMENT_SHADER_SOLID: &str = "
-#version 150 core
+#version 130
 
 uniform sampler2D Texture;
 

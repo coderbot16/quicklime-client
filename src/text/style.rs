@@ -1,3 +1,5 @@
+use color::Rgb;
+
 const BOLD: u8 = 1;
 const UNDERLINE: u8 = 2;
 const ITALIC: u8 = 4;
@@ -17,6 +19,7 @@ impl StyleFlags {
 		StyleFlags(BOLD | UNDERLINE | ITALIC | STRIKETHROUGH | OBFUSCATE)
 	}
 	
+	#[warn(unused_must_use)]
 	pub fn set_bold(self, bold: bool) -> Self {
 		StyleFlags((self.0 & !BOLD) | (if bold {BOLD} else {0}))
 	}
@@ -25,6 +28,7 @@ impl StyleFlags {
 		(self.0 & BOLD) == BOLD
 	}
 	
+	#[warn(unused_must_use)]
 	pub fn set_underline(self, underline: bool) -> Self {
 		StyleFlags((self.0 & !UNDERLINE) | (if underline {UNDERLINE} else {0}))
 	}
@@ -33,6 +37,7 @@ impl StyleFlags {
 		(self.0 & UNDERLINE) == UNDERLINE
 	}
 	
+	#[warn(unused_must_use)]
 	pub fn set_italic(self, italic: bool) -> Self {
 		StyleFlags((self.0 & !ITALIC) | (if italic {ITALIC} else {0}))
 	}
@@ -41,6 +46,7 @@ impl StyleFlags {
 		(self.0 & ITALIC) == ITALIC
 	}
 	
+	#[warn(unused_must_use)]
 	pub fn set_strikethrough(self, strikethrough: bool) -> Self {
 		StyleFlags((self.0 & !STRIKETHROUGH) | (if strikethrough {STRIKETHROUGH} else {0}))
 	}
@@ -49,6 +55,7 @@ impl StyleFlags {
 		(self.0 & STRIKETHROUGH) == STRIKETHROUGH
 	}
 	
+	#[warn(unused_must_use)]
 	pub fn set_obfuscate(self, obfuscate: bool) -> Self{
 		StyleFlags((self.0 & !OBFUSCATE) | (if obfuscate {OBFUSCATE} else {0}))
 	}
@@ -58,10 +65,10 @@ impl StyleFlags {
 	}
 	
 	/// Returns a pair of StyleFlags: one describing with the result of the style command, and one containing a bitmask of the affected flags.
-	pub fn process(self, cmd: &StyleCommand) -> (StyleFlags, StyleFlags) {
+	pub fn process(self, cmd: &StyleCommand) -> (Self, Self) {
 		match *cmd {
-			StyleCommand::Color(_)		=> (Self::none(), 						Self::none()),
-			StyleCommand::Reset 		=> (Self::none(), 						Self::none()),
+			StyleCommand::Color(_)		=> (Self::none(), 						Self::all()),
+			StyleCommand::Reset 		=> (Self::none(), 						Self::all()),
 			StyleCommand::Bold			=> (StyleFlags(self.0 | BOLD), 			Self::none().set_bold(true)),
 			StyleCommand::Underline 	=> (StyleFlags(self.0 | UNDERLINE), 	Self::none().set_underline(true)),
 			StyleCommand::Italic 		=> (StyleFlags(self.0 | ITALIC), 		Self::none().set_italic(true)),
@@ -115,8 +122,8 @@ pub enum PaletteColor {
 }
 
 impl PaletteColor {
-	fn foreground(&self) -> u32 {
-		match *self {
+	fn foreground(&self) -> Rgb {
+		Rgb::from_rgb(match *self {
 			PaletteColor::Black 		=> 0x000000,
 			PaletteColor::DarkBlue 	=> 0x0000AA,
 			PaletteColor::DarkGreen	=> 0x00AA00,
@@ -133,11 +140,11 @@ impl PaletteColor {
 			PaletteColor::LightPurple 	=> 0xFF55FF,
 			PaletteColor::Yellow 		=> 0xFFFF55,
 			PaletteColor::White 		=> 0xFFFFFF
-		}
+		})
 	}
 	
-	fn background(&self) -> u32 {
-		match *self {
+	fn background(&self) -> Rgb {
+		Rgb::from_rgb(match *self {
 			PaletteColor::Black 		=> 0x000000,
 			PaletteColor::DarkBlue 	=> 0x00002A,
 			PaletteColor::DarkGreen	=> 0x002A00,
@@ -154,7 +161,7 @@ impl PaletteColor {
 			PaletteColor::LightPurple 	=> 0x3F153F,
 			PaletteColor::Yellow 		=> 0x3F3F15,
 			PaletteColor::White 		=> 0x3F3F3F
-		}
+		})
 	}
 	
 	fn from_code(code: char) -> Option<Self> {

@@ -40,6 +40,12 @@ impl Lit {
 		self.part + (self.px as f32)*scale + (self.tx as f32)/128.0
 	}
 	
+	pub fn to_px(&self, scale: f32) -> f32 {
+		let part = self.part + (self.tx as f32)/128.0;
+		
+		part / scale + (self.px as f32)
+	}
+	
 	fn handle_term(&mut self, op: char, term: &str) -> Result<(), ParseLitError> {
 		println!("term: {}, op: {}", term, op);
 		

@@ -4,6 +4,12 @@ pub struct Rgb(u32);
 
 impl Rgb {
 	/// Creates a new RGB value, where the values are in the Srgb color set.
+	/// The provided integer should be in the format `(r << 16) | (g << 8) | b`.
+	pub fn from_rgb(rgb: u32) -> Self {
+		Rgb(rgb & 0x00FFFFFF)
+	}
+	
+	/// Creates a new RGB value, where the values are in the Srgb color set.
 	pub fn new(r: u8, g: u8, b: u8) -> Self {
 		Rgb(
 			((r as u32) << 16) | 
@@ -40,6 +46,11 @@ impl Rgb {
 			srgb[1].powf(2.2),
 			srgb[2].powf(2.2)
 		]
+	}
+	
+	/// Returns an integer with the format `(r << 16) | (g << 8) | b`.
+	pub fn to_rgb(&self) -> u32 {
+		self.0
 	}
 	
 	pub fn to_rgba(&self, alpha: u8) -> Rgba {

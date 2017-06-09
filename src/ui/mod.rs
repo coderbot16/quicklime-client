@@ -3,6 +3,7 @@ pub mod render;
 pub mod managed;
 pub use self::render::Vertex as Vertex;
 pub mod input;
+pub mod replace;
 
 use input::ScreenSlice;
 use std::rc::Rc;
@@ -18,7 +19,9 @@ use text::style::{StyleFlags, Style};
 use text::pages::PAGES;
 use text::align::Align;
 use color::{Rgb, Rgba};
-use input::InputState;
+use self::input::Input;
+use serde_json::Value;
+use ui::replace::IncompleteScene;
 
 #[derive(Serialize, Deserialize)]
 pub struct Scene {
@@ -29,7 +32,8 @@ pub struct Scene {
 impl Scene {
 	pub fn new() -> Self {
 		Scene {
-			elements: HashMap::new()
+			elements: HashMap::new(),
+			inputs: HashMap::new()
 		}
 	}
 }
@@ -54,7 +58,7 @@ pub struct State {
 }
 
 impl State {
-	pub fn push_to<R>(&mut self, scale: (f32, f32), z: f32, context: &mut Context<R>, metrics: &Metrics) where R: Resources {
+	pub fn push_to<R>(&mut self, scale: (f32, f32), z: f32, context: &mut Context<R>, metrics: &Metrics, scenes: &HashMap<String, IncompleteScene>) where R: Resources {
 		match self.kind {
 			Kind::Rect => {
 				self.zone_id = Some(context.new_zone());
@@ -93,19 +97,20 @@ impl State {
 				let width = metrics.advance(string.chars(), &StyleFlags::none()).total().expect("wtf?");
 				
 				let start = align.start_x(
-					self.center.0.to_part(scale.0) - self.extents.0.to_part(scale.0), 
-					self.center.0.to_part(scale.0) + self.extents.0.to_part(scale.0), 
-					(width as f32) * scale.0
+					self.center.0.to_px(scale.0) - self.extents.0.to_px(scale.0), 
+					self.center.0.to_px(scale.0) + self.extents.0.to_px(scale.0), 
+					width as f32
 				);
 				
 				// TODO: Positioning
 				
-				let y_center = self.center.1.to_part(scale.1);
+				let y_center = self.center.1.to_px(scale.1);
 				
-				for command in ctxt.render(start / scale.0 + 1.0, y_center - 5.5, string.chars(), &style, true, shadow).filter_map(|x| x).chain(
-						ctxt.render(start / scale.0, y_center - 4.5, string.chars(), &style, false, color).filter_map(|x| x)
+				println!("y_center: {}, x_start: {}", y_center, start);
+				
+				for command in ctxt.render(start + 1.0, y_center - 5.5, string.chars(), &style, true, shadow).filter_map(|x| x).chain(
+						ctxt.render(start, y_center - 4.5, string.chars(), &style, false, color).filter_map(|x| x)
 					) {
-					let scale = (scale.0 * 2.0, scale.1 * 2.0);
 					println!("{:?}", command);
 					match command {
 						Command::Char( ref draw_command ) => {
@@ -135,6 +140,19 @@ impl State {
 					}
 				}
 			},
+			Kind::Import { ref scene, ref with } => {
+				if let Some(incomplete) = scenes.get(scene) {
+					let mut complete = incomplete.complete(with).unwrap();
+					
+					let mut depth = 1.0;
+	
+					for (name, element) in &mut complete.elements {
+						// TODO
+						element.default.push_to(scale, z, context, metrics, scenes);
+						depth /= 2.0;
+					}
+				}
+			},
 			Kind::Nodraw => ()
 		}
 	}
@@ -146,6 +164,7 @@ pub enum Kind {
 	Image { texture: String, slice: ScreenSlice },
 	//Text { buf: ChatBuf }
 	Text { string: String },
+	Import { scene: String, with: HashMap<String, Value> },
 	Nodraw
 }
 
