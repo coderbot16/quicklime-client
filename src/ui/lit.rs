@@ -51,16 +51,16 @@ impl Lit {
 		
 		if term.ends_with("px") {
 			let term = &term[..term.len() - 2];
-			let val = try!(term.parse::<i32>().map_err(ParseLitError::ParseInt));
+			let val = term.parse::<i32>().map_err(ParseLitError::ParseInt)?;
 		
 			self.px += if op=='+' {val} else {-val};
 		} else if term.ends_with("tx") {
 			let term = &term[..term.len() - 2];
-			let val = try!(term.parse::<i32>().map_err(ParseLitError::ParseInt));
+			let val = term.parse::<i32>().map_err(ParseLitError::ParseInt)?;
 		
 			self.tx += if op=='+' {val} else {-val};
 		} else {
-			let val =  try!(term.parse::<f32>().map_err(ParseLitError::ParseFloat));
+			let val =  term.parse::<f32>().map_err(ParseLitError::ParseFloat)?;
 			
 			self.part += if op=='+' {val} else {-val};
 		};
@@ -126,7 +126,7 @@ impl FromStr for Lit {
 					return Err(ParseLitError::DoubleOperator)
 				};
 				
-				try!(lit.handle_term(last_op, term.trim()));
+				lit.handle_term(last_op, term.trim())?;
 				last_op = char;
 				
 				start = None;
@@ -138,7 +138,7 @@ impl FromStr for Lit {
 		// Handle the last term.
 		if let Some(start) = start {
 			let term = &s[start..];
-			try!(lit.handle_term(last_op, term.trim()));
+			lit.handle_term(last_op, term.trim())?;
 		}
 		
 		Ok(lit)

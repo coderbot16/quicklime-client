@@ -110,7 +110,7 @@ impl Target {
 	
 	
 	fn from(cmd: &FormatCommand) -> Result<Self, Error> {
-		let target = try!(Self::from_unchecked(cmd));
+		let target = Self::from_unchecked(cmd)?;
 		
 		// check kind is Octal, Hex, [all FP] if Alt
 		// check kind is Decimal, [all FP] if Sign::PositivePlus or Sign::PositiveSpace

@@ -18,9 +18,9 @@ impl Asset for Directory {
 		let mut line_number = 0;
 		
 		for line in read.lines() {
-			let line = try!(line.map_err(Error::Io));
+			let line = line.map_err(Error::Io)?;
 			
-			if let Some((key, raw)) = try!(parse_line(&line)) {
+			if let Some((key, raw)) = parse_line(&line)? {
 				dir.insert(key, Compiled::compile(raw).map_err(
 					|(index, err)| LoadError {
 						err: err, 
@@ -53,31 +53,31 @@ pub struct LoadError {
 
 impl Display for LoadError {
 	fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
-		try!(writeln!(f, "error: {}", self.err));
+		writeln!(f, "error: {}", self.err)?;
 		
-		try!(writeln!(f, "  --> {}:{}:{}", "assets/minecraft/lang/en_US.lang", self.line+1, self.index+1));
+		writeln!(f, "  --> {}:{}:{}", "assets/minecraft/lang/en_US.lang", self.line+1, self.index+1)?;
 				
 		let num = format!("{}", self.line+1);
 				
-		for _ in 0..num.len() {try!(write!(f, " "))};
-		try!(writeln!(f, " |"));
+		for _ in 0..num.len() {write!(f, " ")?};
+		writeln!(f, " |")?;
 					
-		try!(writeln!(f, "{} | {}", num, self.text));
+		writeln!(f, "{} | {}", num, self.text)?;
 					
-		for _ in 0..num.len() {try!(write!(f, " "))};
-		try!(write!(f, " | "));
+		for _ in 0..num.len() {write!(f, " ")?};
+		write!(f, " | ")?;
 		for _ in 0..self.index {
-			try!(write!(f, " "))
+			write!(f, " ")?
 		}
 						
-		try!(writeln!(f, "^"));
+		writeln!(f, "^")?;
 		
-		for _ in 0..num.len() {try!(write!(f, " "))};
-		try!(writeln!(f, " |"));
+		for _ in 0..num.len() {write!(f, " ")?};
+		writeln!(f, " |")?;
 		
 		if let Some(help) = self.err.help() {
-			for _ in 0..num.len() {try!(write!(f, " "))};
-			try!(writeln!(f, " = help: {}", help))
+			for _ in 0..num.len() {write!(f, " ")?};
+			writeln!(f, " = help: {}", help)?
 		}
 		
 		Ok(())
@@ -100,7 +100,7 @@ pub fn parse_line(line: &str) -> Result<Option<(&str, &str)>, Error> {
 	
 	Ok(Some((
 		items.next().expect("A split iterator should yield at least one element! Go home Rust, you're drunk."), 
-		try!(items.next().ok_or(Error::NoValue))
+		items.next().ok_or(Error::NoValue)?
 	)))
 }
 
@@ -231,7 +231,7 @@ impl Compiled {
 			
 			match c {
 				'%' => {
-					let (size, cmd) = try!(FormatCommand::parse(&source[index..]).map_err(|e| (index, ProcessError::Parse(e)))); 
+					let (size, cmd) = FormatCommand::parse(&source[index..]).map_err(|e| (index, ProcessError::Parse(e)))?; 
 					
 					next = index + size;
 					
@@ -240,7 +240,7 @@ impl Compiled {
 					} else if cmd.kind == Kind::Percent {
 						compiled.string.push('%');
 					} else {
-						compiled.commands.push(try!(processor.process(compiled.string.len(), cmd).map_err(|e| (index, e))));
+						compiled.commands.push(processor.process(compiled.string.len(), cmd).map_err(|e| (index, e)))?;
 					}
 				},
 				c => compiled.string.push(c)

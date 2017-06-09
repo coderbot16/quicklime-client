@@ -396,16 +396,13 @@ impl FormatCommand {
 			(s, None)
 		};
 		
-		let (kind, upper) = try! {
+		let (kind, upper) =
 			s.chars().nth(0)
-			.and_then(|first| 
-				Kind::from_character(first, s.chars().nth(1))
-			)
+			.and_then(|first| Kind::from_character(first, s.chars().nth(1)))
 			.ok_or( match s.chars().nth(0) {
 				Some(c) => ParseFormatError::BadConversion(c),
 				None => ParseFormatError::NoConversion
-			})
-		};
+			})?;
 		
 		Ok((start_len - s.len() + 1, FormatCommand {
 			index: arg_idx,

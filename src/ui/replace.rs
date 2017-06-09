@@ -103,7 +103,7 @@ pub fn complete(value: &Value, data: &HashMap<String, Value>, tys: &HashMap<Stri
 						} else if key.len() >= 2 && key.starts_with('$') && string.ends_with('$') {
 							Value::String(key.to_owned())
 						} else if key.contains('$') {
-							try!(complete(entry, data, tys))
+							complete(entry, data, tys)?
 						} else {
 							let ty = tys.get(key).ok_or_else(|| Error::BadRef(key.to_owned()))?;
 							let insert = data.get(key).ok_or_else(|| Error::LookupFailed(key.to_owned()))?;
@@ -112,10 +112,10 @@ pub fn complete(value: &Value, data: &HashMap<String, Value>, tys: &HashMap<Stri
 							unimplemented!()
 						}
 					} else {
-						try!(complete(entry, data, tys))
+						complete(entry, data, tys)?
 					}
 				} else {
-					try!(complete(entry, data, tys))
+					complete(entry, data, tys)?
 				})
 			}
 			
@@ -135,7 +135,7 @@ pub fn complete(value: &Value, data: &HashMap<String, Value>, tys: &HashMap<Stri
 						} else if key.len() >= 2 && key.starts_with('$') && string.ends_with('$') {
 							Value::String(key.to_owned())
 						} else if key.contains('$') {
-							try!(complete(entry, data, tys))
+							complete(entry, data, tys)?
 						} else {
 							let ty = tys.get(key).ok_or_else(|| Error::BadRef(key.to_owned()))?;
 							let insert = data.get(key).ok_or_else(|| Error::LookupFailed(key.to_owned()))?;
@@ -144,10 +144,10 @@ pub fn complete(value: &Value, data: &HashMap<String, Value>, tys: &HashMap<Stri
 							unimplemented!()
 						}
 					} else {
-						try!(complete(entry, data, tys))
+						complete(entry, data, tys)?
 					}
 				} else {
-					try!(complete(entry, data, tys))
+					complete(entry, data, tys)?
 				});
 			}
 			
