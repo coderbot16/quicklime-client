@@ -32,6 +32,8 @@ use ui::render::Context;
 use resource::atlas::{self, Texmap};
 mod resource;
 
+use std::collections::HashMap;
+
 #[macro_use]
 extern crate gfx;
 extern crate gfx_window_glutin;
@@ -76,7 +78,7 @@ fn main() {
     let (window, mut device, mut factory, main_color, main_depth) =
         gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder);
         
-	let mut last_half_size = (683.0, 384.0);
+	let mut last_half_size = (960.0, 540.0);
 	
 	let scale_factor = 2.0;
 	let scale = ((1.0 / last_half_size.0) * scale_factor, (1.0 / last_half_size.1) * scale_factor);
@@ -126,9 +128,17 @@ fn main() {
 	println!("SFC: {} / 65536.0 ({}%)", sfc, (sfc/65536.0)*100.0);
 	
 	let test_file = File::open("resources/test.json").unwrap();
-	let test_org = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_file).unwrap();
+	let test_multiple_file = File::open("resources/test_multiple.json").unwrap();
 	
-	let mut data = ::std::collections::HashMap::new();
+	let test_org = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_file).unwrap();
+	let mut test_multiple = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_multiple_file).unwrap().complete(&HashMap::new()).unwrap();
+	
+	let mut scenes = HashMap::new();
+	scenes.insert("button".to_owned(), test_org);
+	
+	test_multiple.bake_all(&scenes);
+	
+	/*let mut data = ::std::collections::HashMap::new();
 	data.insert("color".to_owned(), json!(16777215));
 	data.insert("text".to_owned(), json!("Hello World!"));
 	data.insert("center".to_owned(), json!([0.0, 0.5]));
@@ -142,7 +152,7 @@ fn main() {
 	data2.insert("center".to_owned(), json!([0.0, -0.5]));
 	data2.insert("actions".to_owned(), json!([]));
 	
-	let mut test2 = test_org.complete(&data2).unwrap();
+	let mut test2 = test_org.complete(&data2).unwrap();*/
 	
 	let mut encoder: Encoder<_, _> = factory.create_command_buffer().into();
 	
@@ -155,10 +165,12 @@ fn main() {
 	
 	let mut depth = 1.0;
 	
-	let scenes = ::std::collections::HashMap::new();
+	//let scenes = ::std::collections::HashMap::new();
+	//test.bake_all(&scenes);
+	//test2.bake_all(&scenes);
 	
-	for (name, element) in (&mut test.elements).iter_mut().chain(&mut test2.elements) {
-		element.default.push_to(scale, depth, &mut context, &metrics, &scenes);
+	for (name, element) in &mut test_multiple.elements {
+		element.default.push_to((0.0, 0.0), scale, (1.0, 1.0), &mut context, &metrics);
 		depth /= 2.0;
 	}
 	

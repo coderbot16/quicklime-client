@@ -1,0 +1,234 @@
+{
+	"parameters": {},
+	"elements": {
+		"fov": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 - 80px", "0.6666666667 + 2px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "TODO: FOV",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"skins": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 - 80px", "0.6666666667 - 52px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.skinCustomisation",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"shaders": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 + 80px", "0.6666666667 - 52px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "Super Secret Settings...",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"sounds": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 - 80px", "0.6666666667 - 76px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.sounds",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"stream": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 + 80px", "0.6666666667 - 76px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.stream",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"video": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 - 80px", "0.6666666667 - 100px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.video",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"controls": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 + 80px", "0.6666666667 - 100px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.controls",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"language": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 - 80px", "0.6666666667 - 124px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.language",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"multiplayer": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 + 80px", "0.6666666667 - 124px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.multiplayer.title",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"resourcepack": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 - 80px", "0.6666666667 - 148px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.resourcepack",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"snooper": {
+			"default": {
+				"name": "default",
+				"center": ["0.0 + 80px", "0.6666666667 - 148px"],
+				"extents": ["75px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "options.snooper.view",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		},
+		"done": {
+			"default": {
+				"name": "default",
+				"center": ["0.0", "0.6666666667 - 178px"],
+				"extents": ["100px", "10px"],
+				"color": { "Solid": 16777215 },
+				"z": 0.1,
+				"kind": {
+					"Import": {
+						"scene": "button",
+						"with": {
+							"text": "gui.done",
+							"actions": []
+						}
+					}
+				}
+			},
+			"states": []
+		}
+	},
+	"inputs": {}
+}

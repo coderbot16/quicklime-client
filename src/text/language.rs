@@ -240,7 +240,7 @@ impl Compiled {
 					} else if cmd.kind == Kind::Percent {
 						compiled.string.push('%');
 					} else {
-						compiled.commands.push(processor.process(compiled.string.len(), cmd).map_err(|e| (index, e)))?;
+						compiled.commands.push(processor.process(compiled.string.len(), cmd).map_err(|e| (index, e))?);
 					}
 				},
 				c => compiled.string.push(c)

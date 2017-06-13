@@ -32,6 +32,7 @@ impl IncompleteScene {
 pub enum Error {
 	BadRef(String),
 	LookupFailed(String),
+	SceneLookupFailed(String),
 	TyMismatch { name: String, expected: Ty },
 	BadInsertTy { string: String, got: Ty, expected: Ty },
 	Json (serde_json::Error)
