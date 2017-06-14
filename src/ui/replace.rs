@@ -173,8 +173,8 @@ fn test() {
 	tys.insert("null".to_owned(), Ty::Str);
 	tys.insert("array".to_owned(), Ty::Seq);
 	
-	assert_eq!(Ok(Value::Number(21343.into())), complete(&Value::String("%num%".to_owned()), &data, &tys));
-	assert_eq!(Ok(Value::Array(vec![1.into(), 2.into(), 3.into(), 4.into()])), complete(&Value::String("%array%".to_owned()), &data, &tys));
+	assert_eq!(Value::Number(21343.into()), complete(&Value::String("%num%".to_owned()), &data, &tys).unwrap());
+	assert_eq!(Value::Array(vec![1.into(), 2.into(), 3.into(), 4.into()]), complete(&Value::String("%array%".to_owned()), &data, &tys).unwrap());
 
 	let subject = json! ([
 		"An innocent value",
@@ -200,7 +200,7 @@ fn test_escape() {
 	let data = HashMap::new();
 	let tys = HashMap::new();
 	
-	assert_eq!(Ok(Value::String("%escape%".to_owned())), complete(&Value::String("%%escape%%".to_owned()), &data, &tys));
-	assert_eq!(Ok(Value::String("%".to_owned())), complete(&Value::String("%%".to_owned()), &data, &tys));
-	assert_eq!(Ok(Value::String("an $escaped$ string $.".to_owned())), complete(&Value::String("an $$escaped$$ string $$.".to_owned()), &data, &tys));
+	assert_eq!(Value::String("%escape%".to_owned()), complete(&Value::String("%%escape%%".to_owned()), &data, &tys).unwrap());
+	assert_eq!(Value::String("%".to_owned()), complete(&Value::String("%%".to_owned()), &data, &tys).unwrap());
+	assert_eq!(Value::String("an $escaped$ string $.".to_owned()), complete(&Value::String("an $$escaped$$ string $$.".to_owned()), &data, &tys).unwrap());
 }

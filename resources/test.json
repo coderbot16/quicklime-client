@@ -6,10 +6,8 @@
 	"elements": {
 		"image": {
 			"default": {
-				"name": "default",
 				"center": [0.0, 0.0],
 				"extents": [1.0, 1.0], 
-				"color": { "Solid": 16777215 },
 				"z": 0.2,
 				"kind": {
 					"Image": {
@@ -28,7 +26,6 @@
 					"name": "hovered",
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
-					"color": { "Solid": 16777215 },
 					"z": 0.2,
 					"kind": {
 						"Image": {
@@ -46,10 +43,8 @@
 		},
 		"text": {
 			"default": {
-				"name": "default",
 				"center": [0.0, 0.0],
 				"extents": [1.0, 1.0],
-				"color": { "Solid": 16777215 },
 				"z": 0.1,
 				"kind": {
 					"Text": {
@@ -57,7 +52,19 @@
 					}
 				}
 			},
-			"states": []
+			"states": [
+				{
+					"name": "hovered",
+					"center": [0.0, 0.0],
+					"extents": [1.0, 1.0],
+					"z": 0.1,
+					"kind": {
+						"Text": {
+							"string": "%text%"
+						}
+					}
+				}
+			]
 		}
 	},
 	"inputs": {
@@ -68,6 +75,7 @@
 				"extents": [1.0, 1.0],
 				"events": [
 					{ "event": "Enter", "action": {"SetElementState": {"element": "image", "state": "hovered"} } },
+					{ "event": "Enter", "action": {"SetElementState": {"element": "text", "state": "hovered"} } },
 					{ "event": "Enter", "action": {"SetInputState": {"input": "button", "state": "hovered"} } }
 				]
 			},
@@ -78,6 +86,7 @@
 					"extents": [1.0, 1.0],
 					"events": [
 						{ "event": "Leave", "action": {"SetElementState": {"element": "image", "state": "default"} } },
+						{ "event": "Leave", "action": {"SetElementState": {"element": "text", "state": "default"} } },
 						{ "event": "Leave", "action": {"SetInputState": {"input": "button", "state": "default"} } }
 					]
 				}

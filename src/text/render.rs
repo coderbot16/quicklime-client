@@ -29,7 +29,7 @@ impl Command {
 }
 
 #[derive(Debug)]
-pub struct DrawChar { 
+pub struct DrawChar {
 	pub x: f32, 
 	pub y: f32, 
 	pub italic: bool, 

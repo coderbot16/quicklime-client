@@ -134,7 +134,7 @@ fn main() {
 	let mut test_multiple = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_multiple_file).unwrap().complete(&HashMap::new()).unwrap();
 	
 	let mut scenes = HashMap::new();
-	scenes.insert("button".to_owned(), test_org);
+	scenes.insert("Button".to_owned(), test_org);
 	
 	test_multiple.bake_all(&scenes);
 	

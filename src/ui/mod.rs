@@ -21,7 +21,9 @@ use text::align::Align;
 use color::{Rgb, Rgba};
 use self::input::Input;
 use serde_json::Value;
-use ui::replace::{IncompleteScene, Error};
+use ui::replace::IncompleteScene;
+use std::fmt;
+use serde::de::{Error, Deserializer, Deserialize, Visitor, MapAccess};
 
 #[derive(Serialize, Deserialize)]
 pub struct Scene {
@@ -37,7 +39,7 @@ impl Scene {
 		}
 	}
 	
-	pub fn bake_all(&mut self, scenes: &HashMap<String, IncompleteScene>) -> Result<(), Error> {
+	pub fn bake_all(&mut self, scenes: &HashMap<String, IncompleteScene>) -> Result<(), replace::Error> {
 		for value in self.elements.values_mut() {
 			for state in &mut value.states {
 				state.bake(scenes)?;
@@ -55,6 +57,7 @@ pub struct Element {
 	#[serde(skip_serializing, skip_deserializing)]
 	pub current: Option<usize>,
 	pub default: State,
+	#[serde(default = "Vec::new")]
 	pub states: Vec<State>
 }
 
@@ -76,38 +79,44 @@ impl Element {
 
 #[derive(Serialize, Deserialize)]
 pub struct State {
+	#[serde(default = "default_name")]
 	pub name: String,
 	pub center: (Lit, Lit),
 	pub extents: (Lit, Lit),
+	#[serde(default = "Coloring::white")]
 	pub color: Coloring,
-	pub kind: Kind,
+	pub kind: KindWrapper,
 	pub z: f32,
 	#[serde(skip_serializing, skip_deserializing)]
 	pub zone_id: Option<usize>
 }
 
+fn default_name() -> String {
+	"default".to_string()
+}
+
 impl State {
-	pub fn bake(&mut self, scenes: &HashMap<String, IncompleteScene>) -> Result<(), Error> {
-		let replacement = if let Kind::Import { ref scene, ref with } = self.kind {
-			let incomplete = scenes.get(scene).ok_or_else(|| Error::SceneLookupFailed(scene.to_owned()))?;
+	pub fn bake(&mut self, scenes: &HashMap<String, IncompleteScene>) -> Result<(), replace::Error> {
+		let replacement = if let Kind::Import { ref scene, ref with } = self.kind.0 {
+			let incomplete = scenes.get(scene).ok_or_else(|| replace::Error::SceneLookupFailed(scene.to_owned()))?;
 			
 			let mut complete = incomplete.complete(with)?;
 			complete.bake_all(scenes)?;
 			
-			Some(Kind::Baked { scene: complete })
+			Some(Kind::Baked (complete))
 		} else {
 			None
 		};
 		
 		if let Some(replacement) = replacement {
-			self.kind = replacement;
+			self.kind = KindWrapper(replacement);
 		}
 		
 		Ok(())
 	}
 	
 	pub fn push_to<R>(&mut self, offset: (f32, f32), scale: (f32, f32), viewport_scale: (f32, f32), context: &mut Context<R>, metrics: &Metrics) where R: Resources {
-		match self.kind {
+		match self.kind.0 {
 			Kind::Rect => {
 				self.zone_id = Some(context.new_zone());
 				
@@ -122,7 +131,7 @@ impl State {
 					plus_x_color: self.color.bottom_right().to_linear()
 				}.as_quad().as_triangles().iter().map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, self.z], color: vertex.color, tex: vertex.tex }), None);
 			},
-			Kind::Image { ref texture, ref slice } => {
+			Kind::Image (Image { ref texture, ref slice }) => {
 				self.zone_id = Some(context.new_zone());
 				
 				let extents = (self.extents.0.to_part(scale.0) * viewport_scale.0, self.extents.1.to_part(scale.1) * viewport_scale.1);
@@ -136,7 +145,7 @@ impl State {
 					plus_x_color: self.color.bottom_right().to_linear()
 				}.as_quad().as_triangles().iter().map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, self.z], color: vertex.color, tex: vertex.tex }), Some(texture));
 			},
-			Kind::Text { ref string } => {
+			Kind::Text (Text { ref string }) => {
 				self.zone_id = Some(context.new_zone());
 				let ctxt = RenderingContext::new(&metrics);
 				let style = Style::new();
@@ -195,7 +204,7 @@ impl State {
 					}
 				}
 			},
-			Kind::Baked { ref mut scene } => {
+			Kind::Baked (ref mut scene) => {
 				let mut depth = 1.0;
 				
 				for (name, element) in &mut scene.elements {
@@ -208,20 +217,63 @@ impl State {
 					depth /= 2.0;
 				}
 			},
-			Kind::Import {..} => panic!("Tried to push an unbaked state to "),
+			Kind::Import {..} => panic!("Tried to push an unbaked state to context"),
 			Kind::Nodraw => ()
 		}
 	}
 }
 
+#[derive(Serialize)]
+pub struct KindWrapper(pub Kind);
+
+impl<'de> Deserialize<'de> for KindWrapper {
+	fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+		deserializer.deserialize_map(KindVisitor)
+	}
+}
+
+struct KindVisitor;
+impl<'de> Visitor<'de> for KindVisitor {
+	type Value = KindWrapper;
+	
+	fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+		formatter.write_str("a map of the structure {\"variant\": {/*map data*/}}")
+	}
+	
+	fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+		let key: String = map.next_key()?.ok_or_else( || A::Error::custom("Enum structure must have at least one key") )?;
+		
+		Ok(KindWrapper(match &key as &str {
+			"Rect" => Kind::Rect,
+			"Image" => Kind::Image(map.next_value()?),
+			"Text" => Kind::Text(map.next_value()?),
+			"Import" => unimplemented!(),
+			"Baked" => Kind::Baked(map.next_value()?),
+			"Nodraw" => Kind::Nodraw,
+			key => Kind::Import {scene: key.to_owned(), with: map.next_value()? }
+		}))
+	}
+}
+
+#[derive(Serialize, Deserialize)]
+struct Image {
+	texture: String,
+	slice: ScreenSlice
+}
+
+#[derive(Serialize, Deserialize)]
+struct Text {
+	string: String
+}
+
 #[derive(Serialize, Deserialize)]
 pub enum Kind {
 	Rect,
-	Image { texture: String, slice: ScreenSlice },
+	Image(Image),
 	//Text { buf: ChatBuf }
-	Text { string: String },
+	Text(Text),
 	Import { scene: String, with: HashMap<String, Value> },
-	Baked { scene: Scene },
+	Baked(Scene),
 	Nodraw
 }
 
@@ -237,6 +289,10 @@ pub enum Coloring {
 }
 
 impl Coloring {
+	fn white() -> Self {
+		Coloring::Solid(Rgb::new(255, 255, 255))
+	}
+	
 	fn solid(&self) -> Rgb {
 		match *self {
 			Coloring::Solid(c) => c,
