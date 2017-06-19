@@ -8,7 +8,7 @@
 				"z": 0.1,
 				"kind": {
 					"Button": {
-						"text": "TODO: FOV",
+						"text": "§l§cTODO: FOV slider",
 						"actions": []
 					}
 				}

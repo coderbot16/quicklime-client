@@ -2,6 +2,7 @@ use memmap::{Protection, Mmap};
 use std::fs::File;
 use std::io::{ErrorKind, Error};
 use std::fmt::{self, Display, Formatter};
+use std::str::Chars;
 use text::style::{Style, StyleFlags};
 use text::default::{DefaultMetrics, character_to_default};
 
@@ -142,19 +143,49 @@ impl Metrics {
 		None
 	}
 	
-	pub fn advance<'a, S, I>(&'a self, iter: S, style: &StyleFlags) -> Advance<'a, I> where S: IntoIterator<Item=char, IntoIter=I>, I: Iterator<Item=char> {
-		Advance { iter: iter.into_iter(), bold: style.bold(), metrics: &self }
+	pub fn advance<'a, 'b, S, I>(&'a self, iter: S) -> Advance<'a, 'b, I> where S: IntoIterator<Item=(&'b str, Style), IntoIter=I>, I: Iterator<Item=(&'b str, Style)> {
+		let mut iter = iter.into_iter();
+		let current = iter.next().map(|(run, style)| self.advance_run(run.chars(), style.flags));
+		
+		Advance { metrics: &self, iter, current }
+	}
+	
+	pub fn advance_run<'a, S, I>(&'a self, iter: S, style: StyleFlags) -> AdvanceRun<'a, I> where S: IntoIterator<Item=char, IntoIter=I>, I: Iterator<Item=char> {
+		AdvanceRun { iter: iter.into_iter(), bold: style.bold(), metrics: &self }
 	}
 }
 
-
-pub struct Advance<'a, I> where I: Iterator<Item=char> {
+pub struct Advance<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
 	iter: I,
-	bold: bool,
-	metrics: &'a Metrics
+	metrics: &'a Metrics,
+	current: Option<AdvanceRun<'a, Chars<'b>>>
 }
 
-impl<'a, I> Advance<'a, I> where I: Iterator<Item=char> {
+enum TryNext {
+	None,
+	AlmostEnd,
+	Retry,
+	Inner(Option<u8>)
+}
+
+impl<'a, 'b, I> Advance<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
+	fn try_next(&mut self) -> TryNext {
+		if let Some(ref mut current) = self.current {
+			if let Some(next) = current.next() {
+				TryNext::Inner(next)
+			} else {
+				if let Some((next_run, next_style)) = self.iter.next() {
+					*current = self.metrics.advance_run(next_run.chars(), next_style.flags);
+					TryNext::Retry
+				} else {
+					TryNext::AlmostEnd
+				}
+			}
+		} else {
+			TryNext::None
+		}
+	}
+	
 	pub fn total(self) -> Option<usize> {
 		let mut accumulator = 0;
 		
@@ -169,7 +200,43 @@ impl<'a, I> Advance<'a, I> where I: Iterator<Item=char> {
 	}
 }
 
-impl<'a, I> Iterator for Advance<'a, I> where I: Iterator<Item=char> {
+impl<'a, 'b, I> Iterator for Advance<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
+	type Item = Option<u8>;
+	
+	fn next(&mut self) -> Option<Self::Item> {
+		loop {
+			match self.try_next() {
+				TryNext::None => return None,
+				TryNext::AlmostEnd => {self.current = None; return None},
+				TryNext::Retry => (),
+				TryNext::Inner(inner) => return Some(inner)
+			}
+		}
+	}
+}
+
+pub struct AdvanceRun<'a, I> where I: Iterator<Item=char> {
+	iter: I,
+	bold: bool,
+	metrics: &'a Metrics
+}
+
+impl<'a, I> AdvanceRun<'a, I> where I: Iterator<Item=char> {
+	pub fn total(self) -> Option<usize> {
+		let mut accumulator = 0;
+		
+		for adv in self {
+			accumulator += match adv {
+				Some(advance) => advance as usize,
+				None => return None
+			};
+		}
+		
+		Some(accumulator)
+	}
+}
+
+impl<'a, I> Iterator for AdvanceRun<'a, I> where I: Iterator<Item=char> {
 	type Item = Option<u8>;
 	
 	fn next(&mut self) -> Option<Option<u8>> {

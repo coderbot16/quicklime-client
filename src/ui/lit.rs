@@ -36,12 +36,14 @@ impl Lit {
 		self.part
 	}
 	
+	// TODO: Different scale based on in texture space or screen space
+	
 	pub fn to_part(&self, scale: f32) -> f32 {
-		self.part + (self.px as f32)*scale + (self.tx as f32)/128.0
+		self.part + (self.px as f32)*scale + (self.tx as f32)/256.0
 	}
 	
 	pub fn to_px(&self, scale: f32) -> f32 {
-		let part = self.part + (self.tx as f32)/128.0;
+		let part = self.part + (self.tx as f32)/256.0;
 		
 		part / scale + (self.px as f32)
 	}
@@ -99,7 +101,7 @@ impl Serialize for Lit {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
         where S: Serializer
     {
-        serializer.serialize_str(&format!("{}", self))
+        serializer.serialize_str(&self.to_string())
     }
 }
 

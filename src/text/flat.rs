@@ -1,4 +1,4 @@
-use text::style::{StyleFlags, Style, StyleCommand, Color, PaletteColor};
+use text::style::{Style, StyleCommand, Color, PaletteColor};
 use std::borrow::{Borrow, ToOwned};
 use std::slice::Iter;
 
@@ -38,8 +38,6 @@ pub struct ChatBuf {
 
 impl ChatBuf {
 	pub fn new() -> Self {
-		println!("{}", ::std::mem::size_of::<Descriptor>());
-		
 		ChatBuf {
 			string: String::new(),
 			descriptors: Vec::new(),
@@ -55,52 +53,7 @@ impl ChatBuf {
 		}
 	}
 	
-	// TODO: from_formatted[_lossy]
-	
-	pub fn from_formatted(s: &str, ampersand: bool) -> Self {
-		let marker = if ampersand {'&'} else {'§'};
-		
-		// TODO: Better size calculation
-		let mut buf = Self::new();
-		
-		let mut expect_code = false;
-		let mut style = Style::new();
-		let mut current_len = 0;
-		
-		for char in s.chars() {
-			match char {
-				code if expect_code => {
-					expect_code = false;
-					
-					if current_len != 0 {
-						buf.descriptors.push(Descriptor::new(current_len, 0, false, Kind::Text, style));
-						current_len = 0;
-					}
-					
-					let cmd = StyleCommand::from_code(code).unwrap_or(StyleCommand::Color(PaletteColor::White));
-					
-					style.flags.process(&cmd);
-					
-					if cmd == StyleCommand::Reset {
-						style.color = Color::Default;
-					} else if let StyleCommand::Color(color) = cmd {
-						style.color = Color::Palette(color);
-					}
-				},
-				marker => expect_code = true,
-				char => {
-					buf.string.push(char);
-					current_len += 1;
-				}
-			}
-		}
-		
-		if current_len != 0 {
-			buf.descriptors.push(Descriptor::new(current_len, 0, false, Kind::Text, style));
-		}
-		
-		buf
-	}
+	// TODO: To/from PlainBuf
 	
 	// TODO: from_json[_lenient]
 	// TODO: into_formatted

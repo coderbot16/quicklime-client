@@ -18,6 +18,7 @@ impl Texmap {
 }
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+/// A selection in UV space: bottom left is [0.0, 0.0], top right is [1.0, 1.0]
 pub struct TextureSelection {
 	pub min: [Lit; 2],
 	pub size: [Lit; 2]

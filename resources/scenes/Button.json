@@ -10,14 +10,8 @@
 				"extents": [1.0, 1.0], 
 				"z": 0.2,
 				"kind": {
-					"Image": {
-						"texture": "button",
-						"slice": {
-							"x_min": 0.0, 
-							"x_max": 1.0, 
-							"y_min": 0.0, 
-							"y_max": 1.0
-						}
+					"Rect": {
+						"texture": "button"
 					}
 				}
 			},
@@ -28,14 +22,8 @@
 					"extents": [1.0, 1.0],
 					"z": 0.2,
 					"kind": {
-						"Image": {
-							"texture": "button_hovered",
-							"slice": {
-								"x_min": 0.0, 
-								"x_max": 1.0, 
-								"y_min": 0.0, 
-								"y_max": 1.0
-							}
+						"Rect": {
+							"texture": "button_hovered"
 						}
 					}
 				}
@@ -48,7 +36,8 @@
 				"z": 0.1,
 				"kind": {
 					"Text": {
-						"string": "%text%"
+						"string": "%text%",
+						"shadow": true
 					}
 				}
 			},
@@ -60,7 +49,8 @@
 					"z": 0.1,
 					"kind": {
 						"Text": {
-							"string": "%text%"
+							"string": "%text%",
+							"shadow": true
 						}
 					}
 				}

@@ -5,9 +5,7 @@ extern crate serde;
 #[macro_use]
 extern crate serde_json;
 extern crate glutin;
-
-//mod console;
-//use console::{Kind, Value};
+extern crate num;
 
 mod input;
 mod text;
@@ -15,23 +13,19 @@ mod ui;
 mod render2d;
 mod directory;
 mod color;
+mod segment;
 
-use color::{Rgb, Rgba};
+use color::Rgba;
 //mod scoreboard;
 
-use render2d::Rect;
-
-use text::language;
 use std::fs::File;
-use input::Screen;
 use glutin::Event;
 use std::io::BufReader;
-use ui::{Vertex, Scene, State, Element, Kind, Coloring};
-use ui::lit::Lit;
 use ui::render::Context;
 use resource::atlas::{self, Texmap};
 mod resource;
 
+use resource::atlas::TexmapBucket;
 use std::collections::HashMap;
 
 #[macro_use]
@@ -56,10 +50,6 @@ fn main() {
 	let glyph_metrics = text::metrics::GlyphMetrics::from_file(&file).unwrap();
 	let metrics = text::metrics::Metrics::unicode(glyph_metrics);
 	
-	let ctxt = text::render::RenderingContext::new(&metrics);
-	let mut style = text::style::Style::new();
-	style.color = text::style::Color::Palette(text::style::PaletteColor::White);
-	
 	let page_0_file = File::open("assets/minecraft/textures/font/unicode_page_00.png").unwrap();
 	let widgets_file = File::open("assets/minecraft/textures/gui/widgets.png").unwrap();
 	
@@ -83,52 +73,8 @@ fn main() {
 	let scale_factor = 2.0;
 	let scale = ((1.0 / last_half_size.0) * scale_factor, (1.0 / last_half_size.1) * scale_factor);
 	
-	let mut rect_data: Vec<Vertex> = Vec::new();
-	
-	let mut sfc = 0.0;
-	let texmap: atlas::TexmapBucket = serde_json::from_reader(File::open("resources/texmaps/gui.json").unwrap()).unwrap();
-	if let Some(texmap) = texmap.0.get("minecraft:textures/gui/widgets.png") {
-		for (k, v) in texmap.0.iter() {
-			let min = [v.min[0].to_part(0.0), v.min[1].to_part(0.0)];
-			let size = [v.size[0].to_part(0.0), v.size[1].to_part(0.0)];
-			sfc += size[0] * size[1] * 16384.0;
-			
-			let color = {
-				[0.25 + (min[0]*16.0)%0.5, 0.25 + (min[1]*16.0)%0.5, 0.25 + (min[0]*16.0)%0.5]
-			};
-			
-			let min = [min[0] * 0.5625, min[1]];
-			let size = [size[0] * 0.5625, size[1]];
-			let max = [min[0] + size[0], min[1] + size[1]];
-			
-			let width = scale.0 * 2.0;
-			let height = scale.1 * 2.0;
-			
-			let rects = [
-				Rect::solid(min, [min[0] + width, max[1]], color),
-				Rect::solid(min, [max[0], min[1] + height], color),
-				Rect::solid([max[0] - width, min[1]], [max[0], min[1] + size[1]], color),
-				Rect::solid([min[0], max[1] - height], [min[0] + size[0], max[1]], color),
-			];
-			
-			/*for r in rects.iter() {
-				rect_data.extend (
-					r
-					.as_quad()
-					.as_triangles()
-					.iter()
-					.map(|vertex| Vertex { pos: [vertex.pos[0], vertex.pos[1], 0.2], color: vertex.color, tex: vertex.tex })
-				);
-			}*/
-			
-			println!("{}: {:?}", k, v);
-		}
-	}
-	
-	println!("SFC: {} / 65536.0 ({}%)", sfc, (sfc/65536.0)*100.0);
-	
-	let test_file = File::open("resources/test.json").unwrap();
-	let test_multiple_file = File::open("resources/test_multiple.json").unwrap();
+	let test_file = File::open("resources/scenes/Button.json").unwrap();
+	let test_multiple_file = File::open("resources/scenes/Main.json").unwrap();
 	
 	let test_org = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_file).unwrap();
 	let mut test_multiple = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_multiple_file).unwrap().complete(&HashMap::new()).unwrap();
@@ -136,42 +82,20 @@ fn main() {
 	let mut scenes = HashMap::new();
 	scenes.insert("Button".to_owned(), test_org);
 	
-	test_multiple.bake_all(&scenes);
+	test_multiple.bake_all(&scenes).unwrap();
 	
-	/*let mut data = ::std::collections::HashMap::new();
-	data.insert("color".to_owned(), json!(16777215));
-	data.insert("text".to_owned(), json!("Hello World!"));
-	data.insert("center".to_owned(), json!([0.0, 0.5]));
-	data.insert("actions".to_owned(), json!([]));
-	
-	let mut test = test_org.complete(&data).unwrap();
-	
-	let mut data2 = ::std::collections::HashMap::new();
-	data2.insert("color".to_owned(), json!(16777215));
-	data2.insert("text".to_owned(), json!(">> A very long text test <<"));
-	data2.insert("center".to_owned(), json!([0.0, -0.5]));
-	data2.insert("actions".to_owned(), json!([]));
-	
-	let mut test2 = test_org.complete(&data2).unwrap();*/
+	let bucket_file = File::open("resources/texmaps/gui.json").unwrap();
+	let bucket = serde_json::from_reader::<_, TexmapBucket>(bucket_file).unwrap();
 	
 	let mut encoder: Encoder<_, _> = factory.create_command_buffer().into();
 	
 	// TODO: Transparency sorting.
 	let mut context = Context::create(&mut factory, main_color.clone(), main_depth.clone());
-	context.add_texture(&mut factory, texmap.0.get("minecraft:textures/gui/widgets.png").unwrap(), &widgets);
+	context.add_texture(&mut factory, bucket.0.get("minecraft:textures/gui/widgets.png").unwrap(), &widgets);
 	context.add_texture(&mut factory, &Texmap::new("unicode_page_00".to_owned()), &page_0);
-	context.new_zone();
-	context.extend_zone(rect_data.iter().map(|x| *x), None);
 	
-	let mut depth = 1.0;
-	
-	//let scenes = ::std::collections::HashMap::new();
-	//test.bake_all(&scenes);
-	//test2.bake_all(&scenes);
-	
-	for (name, element) in &mut test_multiple.elements {
+	for element in test_multiple.elements.values_mut() {
 		element.default.push_to((0.0, 0.0), scale, (1.0, 1.0), &mut context, &metrics);
-		depth /= 2.0;
 	}
 	
 	'main: loop {
@@ -228,25 +152,6 @@ fn main() {
 	for component in redstone_creations.components() {
 		println!("{:?}", component);
 	}*/
-	
-	/*let mut scene = Scene::new();
-	let state = State {
-		name: "default".to_owned(),
-		center: (Lit::new(0.0, 0), Lit::new(0.0, 0)),
-		extents: (Lit::new(0.5, 0), Lit::new(0.5, 0)),
-		color: Coloring::Solid([1.0, 0.0, 1.0]),
-		kind: Kind::Nodraw
-	};
-	
-	let element = Element {
-		current: None,
-		default: state,
-		states: vec![]
-	};
-	
-	scene.elements.insert("test".to_owned(), element);
-	
-	println!("{}", serde_json::to_string(&scene).unwrap());*/
 	
 	/*let name = "assets/minecraft/lang/en_US.lang";
 	let mut read = File::open(name).unwrap();

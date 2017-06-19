@@ -1,4 +1,5 @@
 use color::Rgb;
+use std::iter;
 
 const BOLD: u8 = 1;
 const UNDERLINE: u8 = 2;
@@ -9,7 +10,9 @@ const OBFUSCATE: u8 = 16;
 /// Packs the 5 style properties into a single byte.
 /// Format: [UNUSEDx3][RANDOM][STRIKE][ITALIC][UNDERLINE][BOLD]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[must_use]
 pub struct StyleFlags(u8);
+
 impl StyleFlags {
 	pub fn none() -> Self {
 		StyleFlags(0)
@@ -19,7 +22,6 @@ impl StyleFlags {
 		StyleFlags(BOLD | UNDERLINE | ITALIC | STRIKETHROUGH | OBFUSCATE)
 	}
 	
-	#[warn(unused_must_use)]
 	pub fn set_bold(self, bold: bool) -> Self {
 		StyleFlags((self.0 & !BOLD) | (if bold {BOLD} else {0}))
 	}
@@ -28,7 +30,6 @@ impl StyleFlags {
 		(self.0 & BOLD) == BOLD
 	}
 	
-	#[warn(unused_must_use)]
 	pub fn set_underline(self, underline: bool) -> Self {
 		StyleFlags((self.0 & !UNDERLINE) | (if underline {UNDERLINE} else {0}))
 	}
@@ -37,7 +38,6 @@ impl StyleFlags {
 		(self.0 & UNDERLINE) == UNDERLINE
 	}
 	
-	#[warn(unused_must_use)]
 	pub fn set_italic(self, italic: bool) -> Self {
 		StyleFlags((self.0 & !ITALIC) | (if italic {ITALIC} else {0}))
 	}
@@ -46,7 +46,6 @@ impl StyleFlags {
 		(self.0 & ITALIC) == ITALIC
 	}
 	
-	#[warn(unused_must_use)]
 	pub fn set_strikethrough(self, strikethrough: bool) -> Self {
 		StyleFlags((self.0 & !STRIKETHROUGH) | (if strikethrough {STRIKETHROUGH} else {0}))
 	}
@@ -55,7 +54,6 @@ impl StyleFlags {
 		(self.0 & STRIKETHROUGH) == STRIKETHROUGH
 	}
 	
-	#[warn(unused_must_use)]
 	pub fn set_obfuscate(self, obfuscate: bool) -> Self{
 		StyleFlags((self.0 & !OBFUSCATE) | (if obfuscate {OBFUSCATE} else {0}))
 	}
@@ -64,17 +62,117 @@ impl StyleFlags {
 		(self.0 & OBFUSCATE) == OBFUSCATE
 	}
 	
-	/// Returns a pair of StyleFlags: one describing with the result of the style command, and one containing a bitmask of the affected flags.
-	pub fn process(self, cmd: &StyleCommand) -> (Self, Self) {
+	/// Returns the amount of set style flags.
+	pub fn count(&self) -> u32 {
+		self.0.count_ones()
+	}
+	
+	// TODO: Op overrides
+	
+	pub fn and(&self, other: Self) -> Self {
+		StyleFlags(self.0 & other.0)
+	}
+	
+	pub fn or(&self, other: Self) -> Self {
+		StyleFlags(self.0 | other.0)
+	}
+	
+	pub fn process(self, cmd: &StyleCommand) -> Self {
 		match *cmd {
-			StyleCommand::Color(_)		=> (Self::none(), 						Self::all()),
-			StyleCommand::Reset 		=> (Self::none(), 						Self::all()),
-			StyleCommand::Bold			=> (StyleFlags(self.0 | BOLD), 			Self::none().set_bold(true)),
-			StyleCommand::Underline 	=> (StyleFlags(self.0 | UNDERLINE), 	Self::none().set_underline(true)),
-			StyleCommand::Italic 		=> (StyleFlags(self.0 | ITALIC), 		Self::none().set_italic(true)),
-			StyleCommand::Strikethrough => (StyleFlags(self.0 | STRIKETHROUGH), Self::none().set_strikethrough(true)),
-			StyleCommand::Obfuscate 	=> (StyleFlags(self.0 | OBFUSCATE), 	Self::none().set_obfuscate(true))
+			StyleCommand::Color(_)		=> Self::none(),
+			StyleCommand::Reset 		=> Self::none(),
+			StyleCommand::Bold			=> self.set_bold(true),
+			StyleCommand::Underline 	=> self.set_underline(true),
+			StyleCommand::Italic 		=> self.set_italic(true),
+			StyleCommand::Strikethrough => self.set_strikethrough(true),
+			StyleCommand::Obfuscate 	=> self.set_obfuscate(true),
 		}
+	}
+	
+	pub fn commands(&self) -> Commands {
+		Commands {
+			flags: *self,
+			flag: 0
+		}
+	}
+	
+	pub fn delta_commands(&self, other: StyleFlags) -> DeltaCommands {
+		DeltaCommands {
+			flags: other,
+			other: *self,
+			flag: 0
+		}
+	}
+}
+
+pub struct Commands {
+	flags: StyleFlags,
+	flag: u8
+}
+
+impl Commands {
+	fn try_next(&mut self) -> Option<Option<StyleCommand>> {
+		if self.flag == 6 {return None};
+		self.flag += 1;
+		
+		Some(match self.flag {
+			1 => if self.flags.bold() 			{Some(StyleCommand::Bold)} else {None},
+			2 => if self.flags.underline() 		{Some(StyleCommand::Underline)} else {None},
+			3 => if self.flags.italic() 		{Some(StyleCommand::Italic)} else {None},
+			4 => if self.flags.strikethrough() 	{Some(StyleCommand::Strikethrough)} else {None},
+			5 => if self.flags.obfuscate() 		{Some(StyleCommand::Obfuscate)} else {None},
+			_ => unreachable!()
+		})
+	}
+}
+
+impl Iterator for Commands {
+	type Item = StyleCommand;
+	
+	fn next(&mut self) -> Option<Self::Item> {
+		while let Some(result) = self.try_next() {
+			if result.is_some() {
+				return result
+			}
+		}
+		
+		None
+	}
+}
+
+pub struct DeltaCommands {
+	flags: StyleFlags,
+	other: StyleFlags,
+	flag: u8
+}
+
+impl DeltaCommands {
+	fn try_next(&mut self) -> Option<Option<StyleCommand>> {
+		if self.flag == 6 {return None};
+		self.flag += 1;
+		
+		Some(match self.flag {
+			1 => if !self.other.bold()          && self.flags.bold() 			{Some(StyleCommand::Bold)} else {None},
+			2 => if !self.other.underline()     && self.flags.underline() 		{Some(StyleCommand::Underline)} else {None},
+			3 => if !self.other.italic()        && self.flags.italic() 			{Some(StyleCommand::Italic)} else {None},
+			4 => if !self.other.strikethrough() && self.flags.strikethrough() 	{Some(StyleCommand::Strikethrough)} else {None},
+			5 => if !self.other.obfuscate()     && self.flags.obfuscate() 		{Some(StyleCommand::Obfuscate)} else {None},
+			_ => unreachable!()
+		})
+	}
+}
+
+impl Iterator for DeltaCommands {
+	type Item = StyleCommand;
+	
+	fn next(&mut self) -> Option<Self::Item> {
+		while let Some(result) = self.try_next() {
+			if result.is_some() {
+				return result
+			}
+		}
+		
+		None
 	}
 }
 
@@ -92,6 +190,53 @@ impl Style {
 			color: Color::Default
 		}
 	}
+	
+	pub fn process(&mut self, cmd: &StyleCommand) {
+		self.flags = self.flags.process(&cmd);
+		
+		match *cmd {
+			StyleCommand::Reset => self.color = Color::Default,
+			StyleCommand::Color(color) => self.color = Color::Palette(color),
+			_ => ()
+		}
+	}
+	
+	pub fn will_reset(&self, other: Self) -> bool {
+		// If any style flags are unset, we have to reencode the color as well.
+		self.color != other.color || self.flags.or(other.flags) != other.flags
+	}
+	
+	pub fn transition(&self, other: Style) -> Transition {
+		if *self == other {
+			Transition::None
+		} else if self.will_reset(other) {
+			Transition::Reset(iter::once(other.color.command()).chain(other.flags.commands()))
+		} else {
+			/*for command in self.flags.delta_commands(other.flags).filter_map(|x| x) {
+				self.write_command(command)?;
+			}*/
+			
+			unimplemented!()
+		}
+	}
+}
+
+pub enum Transition {
+	Reset(iter::Chain<iter::Once<StyleCommand>, Commands>),
+	Delta(DeltaCommands),
+	None
+}
+
+impl Iterator for Transition {
+	type Item = StyleCommand;
+	
+	fn next(&mut self) -> Option<Self::Item> {
+		match *self {
+			Transition::Reset(ref mut iter) => iter.next(),
+			Transition::Delta(ref mut delta) => delta.next(),
+			Transition::None => None
+		}
+	}
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -99,6 +244,15 @@ pub enum Color {
 	Default,
 	Palette(PaletteColor),
 	//Rgb(u8, u8, u8)
+}
+
+impl Color {
+	pub fn command(&self) -> StyleCommand {
+		match *self {
+			Color::Default => StyleCommand::Reset,
+			Color::Palette(pal) => StyleCommand::Color(pal)
+		}
+	}
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -122,7 +276,7 @@ pub enum PaletteColor {
 }
 
 impl PaletteColor {
-	fn foreground(&self) -> Rgb {
+	pub fn foreground(&self) -> Rgb {
 		Rgb::from_rgb(match *self {
 			PaletteColor::Black 		=> 0x000000,
 			PaletteColor::DarkBlue 	=> 0x0000AA,
@@ -143,7 +297,7 @@ impl PaletteColor {
 		})
 	}
 	
-	fn background(&self) -> Rgb {
+	pub fn background(&self) -> Rgb {
 		Rgb::from_rgb(match *self {
 			PaletteColor::Black 		=> 0x000000,
 			PaletteColor::DarkBlue 	=> 0x00002A,
@@ -241,6 +395,18 @@ impl StyleCommand {
 			StyleCommand::Italic 		=> 'o',
 			StyleCommand::Strikethrough => 'm',
 			StyleCommand::Obfuscate 	=> 'k'
+		}
+	}
+	
+	pub fn affected_flags(&self) -> StyleFlags {
+		match *self {
+			StyleCommand::Color(_)		=> StyleFlags::all(),
+			StyleCommand::Reset 		=> StyleFlags::all(),
+			StyleCommand::Bold			=> StyleFlags::none().set_bold(true),
+			StyleCommand::Underline 	=> StyleFlags::none().set_underline(true),
+			StyleCommand::Italic 		=> StyleFlags::none().set_italic(true),
+			StyleCommand::Strikethrough => StyleFlags::none().set_strikethrough(true),
+			StyleCommand::Obfuscate 	=> StyleFlags::none().set_obfuscate(true)
 		}
 	}
 }

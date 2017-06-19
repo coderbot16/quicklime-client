@@ -3,7 +3,7 @@ pub mod atlas;
 use std::fs::File;
 use std::path::{PathBuf, Path, Component};
 use std::ffi::OsStr;
-use std::io::{Read, Write, BufReader};
+use std::io::{Read, Write};
 
 pub trait Asset: Sized {
 	type Err;

@@ -1,9 +1,8 @@
-use gfx::{self, Factory, Resources, PipelineState, Encoder, CommandBuffer};
+use gfx::{self, format, texture, Factory, Resources, PipelineState, Encoder, CommandBuffer};
 use gfx::traits::FactoryExt;
+use gfx::handle::{RenderTargetView, DepthStencilView};
+
 use ui::managed::ManagedBuffer;
-use gfx::handle::{ShaderResourceView, Sampler, RenderTargetView, DepthStencilView};
-use gfx::texture;
-use gfx::format::Formatted;
 use resource::atlas::{Texmap, TextureSelection};
 use std::collections::HashMap;
 
@@ -150,14 +149,16 @@ impl<R> Context<R> where R: Resources {
 	}
 	
 	fn extend_textured<I>(pipe: &mut TexturedPipe<R>, iter: I, selection: TextureSelection) where I: IntoIterator<Item=Vertex> {
-		pipe.buffer_mut().extend(iter.into_iter().map(|v| {let v = Vertex { 
+		println!("sel: {:?}", selection);
+		
+		pipe.buffer_mut().extend(iter.into_iter().map(|v| {println!("tx: {:?}", v.tex);let v = Vertex { 
 			pos: v.pos, 
 			color: v.color, 
 			tex: [
-				(selection.min[0].to_part(0.0) + v.tex[0] * selection.size[0].to_part(0.0) + 1.0) / 2.0,
-				(selection.min[1].to_part(0.0) + v.tex[1] * selection.size[1].to_part(0.0) + 1.0) / 2.0
+				selection.min[0].to_part(0.0) + v.tex[0] * selection.size[0].to_part(0.0),
+				selection.min[1].to_part(0.0) + v.tex[1] * selection.size[1].to_part(0.0)
 			]
-		}; println!("{:?}", v); v}))
+		}; println!("ext {:?}", v); v}))
 	}
 	
 	pub fn add_texture<F>(&mut self, factory: &mut F, texmap: &Texmap, texture: &[u8]) where F: Factory<R> + FactoryExt<R> {

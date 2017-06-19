@@ -1,5 +1,5 @@
 use super::default::character_to_default;
-use text::style::Style;
+use text::style::{self, Style};
 use text::metrics::{GlyphSize, Metrics};
 use render2d::{Color, Quad, Rect};
 
@@ -11,7 +11,7 @@ const AVOID_FP_ROUNDING: f32 = 0.01;
 pub enum Command {
 	Char(DrawChar),
 	CharDefault { x: f32, y: f32, italic: bool, character: u8, size: GlyphSize },
-	Rect {x: f32, y: f32, width: f32, height: f32}
+	Rect {x: f32, y: f32, width: f32, height: f32, color: Color }
 }
 
 impl Command {
@@ -75,8 +75,24 @@ impl<'a> RenderingContext<'a> {
 		}
 	}
 	
-	pub fn render<I>(&self, x: f32, y: f32, run: I, style: &Style, shadow: bool, color: Color) -> Render<I> where I: Iterator<Item=char> {
-		Render {
+	pub fn render<'b, I>(&self, x: f32, y: f32, text: I, shadow: bool, color: Color) -> Render<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
+		let mut render = Render {
+			metrics: self.metrics,
+			source: text,
+			shadow: shadow,
+			start: (x, y),
+			color: color,
+			
+			current: None
+		};
+		
+		render.init();
+		
+		render
+	}
+	
+	pub fn render_run<I>(&self, x: f32, y: f32, run: I, style: &Style, shadow: bool, color: Color) -> RenderRun<I> where I: Iterator<Item=char> {
+		RenderRun {
 			metrics: self.metrics,
 			source: run,
 			style: *style,
@@ -87,6 +103,71 @@ impl<'a> RenderingContext<'a> {
 			advance: 0.0,
 			bonus: 0.0,
 			state: RenderState::NextChar
+		}
+	}
+}
+
+pub struct Render<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
+	source: I,
+	current: Option<RenderRun<'a, ::std::str::Chars<'b>>>,
+	metrics: &'a Metrics,
+	shadow: bool,
+	start: (f32, f32),
+	color: Color,
+}
+
+// TODO: Remove code duplication from borrow checker stupidity.
+impl<'a, 'b, I> Render<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
+	fn init(&mut self) -> bool{
+		if let Some((next_run, style)) = self.source.next() {
+			self.current = Some(RenderRun {
+				metrics: self.metrics,
+				source: next_run.chars(),
+				style: style,
+				shadow: self.shadow,
+				start: self.start,
+				color: self.color,
+						
+				advance: 0.0,
+				bonus: 0.0,
+				state: RenderState::NextChar
+			});
+			
+			true
+		} else {
+			false
+		}
+	}
+}
+
+impl<'a, 'b, I> Iterator for Render<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
+	type Item = Option<Command>;
+	
+	fn next(&mut self) -> Option<Self::Item> {
+		if let Some(ref mut current) = self.current {
+			if let Some(next) = current.next() {
+				Some(next)
+			} else {
+				if let Some((next_run, style)) = self.source.next() {
+					*current = RenderRun {
+						metrics: self.metrics,
+						source: next_run.chars(),
+						style: style,
+						shadow: self.shadow,
+						start: self.start,
+						color: self.color,
+						
+						advance: current.advance,
+						bonus: current.bonus,
+						state: RenderState::NextChar
+					};
+					Some(None) // TODO
+				} else {
+					None
+				}
+			}
+		} else {
+			None
 		}
 	}
 }
@@ -105,7 +186,7 @@ enum RenderState {
 }
 
 /// An iterator that turns a series of chars into a series of rendering commands using a state machine.
-pub struct Render<'a, I> where I: Iterator<Item=char> {
+pub struct RenderRun<'a, I> where I: Iterator<Item=char> {
 	// Data provided by original call
 	metrics: &'a Metrics,
 	source: I,
@@ -120,7 +201,7 @@ pub struct Render<'a, I> where I: Iterator<Item=char> {
 	state: RenderState,
 }
 
-impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
+impl<'a, I> Iterator for RenderRun<'a, I> where I: Iterator<Item=char> {
 	type Item = Option<Command>;
 	
 	fn next(&mut self) -> Option<Self::Item> {
@@ -139,6 +220,20 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 				}
 			};
 		}
+		
+		let color = if let style::Color::Palette(pal) = self.style.color {
+			if self.shadow {
+				pal.background().to_linear()
+			} else {
+				pal.foreground().to_linear()
+			}
+		} else {
+			if self.shadow {
+				[self.color[0] / 4.0, self.color[1] / 4.0, self.color[2] / 4.0]
+			} else {
+				self.color
+			}
+		};
 		
 		Some(match self.state {
 			RenderState::Main(c, bold) => {
@@ -159,8 +254,13 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 				}
 				
 				if c == ' ' {
+					if !bold && self.style.flags.bold() {
+						self.state = RenderState::Main(' ', true);
+					} else {
+						self.state = RenderState::NextChar;
+					}
 					// We don't render space characters, but rendering them wouldn't hurt anything. This is just an optimization.
-					self.state = RenderState::NextChar;
+					
 					return Some(None)
 				}
 				
@@ -177,7 +277,7 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 					let bold_offset = offset + char_offset;
 					self.state = RenderState::NextChar;
 					
-					Some(Command::decide(x + bold_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, self.color))
+					Some(Command::decide(x + bold_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, color))
 				} else {
 					self.state = if self.style.flags.bold() {
 						RenderState::Main(c, true)
@@ -185,16 +285,16 @@ impl<'a, I> Iterator for Render<'a, I> where I: Iterator<Item=char> {
 						RenderState::NextChar
 					};
 					
-					Some(Command::decide(x + char_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, self.color))
+					Some(Command::decide(x + char_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, color))
 				}
 			},
 			RenderState::Strike => {
 				self.state = if self.style.flags.underline() {RenderState::Under} else {RenderState::End};
-				Some(Command::Rect { x: x, y: y + STRIKE_LEVEL, width: self.advance + self.bonus, height: 1.0})
+				Some(Command::Rect { x: x, y: y + STRIKE_LEVEL, width: self.advance + self.bonus, height: 1.0, color})
 			},
 			RenderState::Under => {
 				self.state = RenderState::End;
-				Some(Command::Rect { x: x - 1.0, y: y + UNDER_LEVEL, width: self.advance + self.bonus + 1.0, height: 1.0})
+				Some(Command::Rect { x: x - 1.0, y: y + UNDER_LEVEL, width: self.advance + self.bonus + 1.0, height: 1.0, color})
 			},
 			RenderState::End => return None,
 			RenderState::NextChar => unreachable!()
