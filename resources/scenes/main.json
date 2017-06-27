@@ -1,14 +1,23 @@
 {
 	"parameters": {},
 	"elements": {
+		"background": {
+			"default": {
+				"center": [0.0, 0.0],
+				"extents": [1.0, 1.0],
+				"z": 1.0,
+				"color": {"solid": "#9bc6fe"},
+				"kind": "rect"
+			}
+		},
 		"fov": {
 			"default": {
 				"center": ["0.0 - 80px", "0.6666666667 + 2px"],
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
-						"text": "§l§cTODO: FOV slider",
+					"button": {
+						"text": "§l@ $$ # ¼ ý",
 						"actions": []
 					}
 				}
@@ -20,7 +29,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.skinCustomisation",
 						"actions": []
 					}
@@ -33,7 +42,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "Super Secret Settings...",
 						"actions": []
 					}
@@ -46,7 +55,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.sounds",
 						"actions": []
 					}
@@ -59,7 +68,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.stream",
 						"actions": []
 					}
@@ -72,7 +81,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.video",
 						"actions": []
 					}
@@ -85,7 +94,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.controls",
 						"actions": []
 					}
@@ -98,7 +107,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.language",
 						"actions": []
 					}
@@ -111,7 +120,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.multiplayer.title",
 						"actions": []
 					}
@@ -124,7 +133,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.resourcepack",
 						"actions": []
 					}
@@ -137,7 +146,7 @@
 				"extents": ["75px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "options.snooper.view",
 						"actions": []
 					}
@@ -150,7 +159,7 @@
 				"extents": ["100px", "10px"],
 				"z": 0.1,
 				"kind": {
-					"Button": {
+					"button": {
 						"text": "gui.done",
 						"actions": []
 					}

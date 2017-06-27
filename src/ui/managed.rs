@@ -1,4 +1,4 @@
-use gfx::{self, Encoder, Resources, CommandBuffer, Slice, IndexBuffer};
+use gfx::{Encoder, Resources, CommandBuffer, Slice, IndexBuffer};
 use gfx::memory::{Usage, TRANSFER_DST};
 use gfx::handle::Buffer;
 use gfx::traits::{Factory, FactoryExt};

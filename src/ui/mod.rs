@@ -14,32 +14,25 @@ use std::collections::HashMap;
 use std::fmt;
 use text::align::Align;
 use text::metrics::Metrics;
-use text::pages::PAGES;
+use text::pages::get_page;
 use text::render::{RenderingContext, Command};
 use text::repr::plain::{PlainBuf, Iter};
-use text::style::{StyleFlags, Style};
-use ui::input::Input;
+use ui::input::{Input, InputEvent};
 use ui::lit::Lit;
 use ui::render::Context;
 use ui::replace::IncompleteScene;
 
 pub use self::render::Vertex as Vertex;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct Scene {
+	#[serde(skip_serializing, skip_deserializing)]
+	cursor: Option<(f32, f32)>,
 	pub elements: HashMap<String, Element>,
 	pub inputs: HashMap<String, Input>
 }
 
 impl Scene {
-	/// Creates a scene containing no elements or inputs.
-	pub fn new() -> Self {
-		Scene {
-			elements: HashMap::new(),
-			inputs: HashMap::new()
-		}
-	}
-	
 	/// Resolves all of the contained imports to incomplete scenes and preforms replacement of the parameters contained in the incomplete scenes.
 	/// If an incomplete scene contains further imports, those will be handled properly as well.
 	/// Failure to call this function or an error while resolving will result in a panic on a subsequent call to Element::push_to.
@@ -53,6 +46,12 @@ impl Scene {
 		}
 		
 		Ok(())
+	}
+	
+	pub fn handle_event(&mut self, event: &InputEvent) {
+		match event {
+			_ => ()
+		}
 	}
 }
 
@@ -154,29 +153,23 @@ impl State {
 				
 				context.extend_zone(vertices, texture.as_ref().map(::std::borrow::Borrow::borrow));
 			},
-			Kind::Text (Text { ref string, shadow }) => {
+			Kind::Text (Text { ref string, shadow, ref align }) => {
 				println!("{:?}", string);
 				
 				self.zone_id = Some(context.new_zone());
 				let ctxt = RenderingContext::new(&metrics);
-				let style = Style::new();
 				
-				let color = self.color.solid().to_linear();
-				
-				let align = Align::Center;
-				let width = metrics.advance(string.iter()).total().expect("wtf?");
-				
+				let width = metrics.advance(string.iter()).total().expect("string contained characters outside BMP");
 				let start = align.start_x(
-					self.center.0.to_px(scale.0) - self.extents.0.to_px(scale.0), 
-					self.center.0.to_px(scale.0) + self.extents.0.to_px(scale.0), 
+					self.center.0.to_px(scale.0) * viewport_scale.0 - self.extents.0.to_px(scale.0) * viewport_scale.0, 
+					self.center.0.to_px(scale.0) * viewport_scale.0 + self.extents.0.to_px(scale.0) * viewport_scale.0, 
 					width as f32
 				);
 				
-				// TODO: Positioning (alignment)
-				
 				let y_center = self.center.1.to_px(scale.1);
 				
-				let shadow_iter = ctxt.render(start + 1.0, y_center - 5.5, if shadow {string.iter()} else {Iter::empty()}, true, color).filter_map(|x| x);
+				let color = self.color.solid();
+				let shadow_iter = ctxt.render(start, y_center - 4.5, if shadow {string.iter()} else {Iter::empty()}, true, color).filter_map(|x| x);
 				
 				for command in shadow_iter.chain(
 						ctxt.render(start, y_center - 4.5, string.iter(), false, color).filter_map(|x| x)
@@ -192,10 +185,9 @@ impl State {
 								.as_triangles()
 								.iter()
 								.map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, self.z], color: vertex.color, tex: vertex.tex }),
-								Some(PAGES[atlas as usize])
+								Some(get_page(atlas))
 							);
 						},
-						Command::CharDefault { .. } => panic!("Can't draw default chars"),
 						Command::Rect { x, y, width, height, color } => {
 							let (x, y) = (x * scale.0, y * scale.1);
 							
@@ -214,7 +206,7 @@ impl State {
 				}
 			},
 			Kind::Baked (ref mut scene) => {
-				for (name, element) in &mut scene.elements {
+				for element in scene.elements.values_mut() {
 					// TODO: maybe a better way to do this?
 					// TODO: Obey coloring.
 					// TODO: Better Z ordering.
@@ -247,11 +239,11 @@ impl<'de> Visitor<'de> for KindVisitor {
 	
 	fn visit_str<E>(self, key: &str) -> Result<Self::Value, E> where E: Error {
 		Ok(match key {
-			"Rect" => Kind::Rect(Image { texture: None, slice: TextureSelection::identity() }),
-			"Text" => return Err(E::custom("Text element must have associated data")),
-			"Import" => unimplemented!(),
-			"Baked" => return Err(E::custom("Baked element must have associated data")),
-			"Nodraw" => Kind::Nodraw,
+			"rect" => Kind::Rect(Image { texture: None, slice: TextureSelection::identity() }),
+			"text" => return Err(E::custom("Text element must have associated data")),
+			"import" => unimplemented!(),
+			"baked" => return Err(E::custom("Baked element must have associated data")),
+			"nodraw" => Kind::Nodraw,
 			key => Kind::Import {scene: key.to_owned(), with: HashMap::new() }
 		})
 	}
@@ -262,11 +254,11 @@ impl<'de> Visitor<'de> for KindVisitor {
 		// This custom deserialization implementation allows Import statements to be written like builtin kinds.
 		
 		Ok(match &key as &str {
-			"Rect" => Kind::Rect(map.next_value()?),
-			"Text" => Kind::Text(map.next_value()?),
-			"Import" => unimplemented!(),
-			"Baked" => Kind::Baked(map.next_value()?),
-			"Nodraw" => Kind::Nodraw,
+			"rect" => Kind::Rect(map.next_value()?),
+			"text" => Kind::Text(map.next_value()?),
+			"import" => unimplemented!(),
+			"baked" => Kind::Baked(map.next_value()?),
+			"nodraw" => Kind::Nodraw,
 			key => Kind::Import {scene: key.to_owned(), with: map.next_value()? }
 		})
 	}
@@ -284,7 +276,9 @@ pub struct Image {
 pub struct Text {
 	string: PlainBuf,
 	#[serde(default = "default_shadow")]
-	shadow: bool
+	shadow: bool,
+	#[serde(default = "default_align")]
+	align: Align
 }
 
 fn default_shadow() -> bool {
@@ -293,6 +287,10 @@ fn default_shadow() -> bool {
 
 fn default_texture() -> Option<String> {
 	None
+}
+
+fn default_align() -> Align {
+	Align::Center
 }
 
 #[derive(Serialize)]
@@ -312,7 +310,9 @@ pub enum Kind {
 /// A coloring of an element. May be a solid color, all vertices are colored equally, or a color varying at each corner.
 #[derive(Serialize, Deserialize)]
 pub enum Coloring {
+	#[serde(rename="solid")]
 	Solid(Rgb),
+	#[serde(rename="corners")]
 	Corners {
 		top_left: Rgb,
 		top_right: Rgb,

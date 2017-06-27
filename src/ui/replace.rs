@@ -22,6 +22,7 @@ pub struct IncompleteScene {
 impl IncompleteScene {
 	pub fn complete(&self, data: &HashMap<String, Value>) -> Result<Scene, Error> {
 		Ok(Scene {
+			cursor: None,
 			elements: complete(&self.elements, data, &self.parameters).and_then(|v| serde_json::from_value(v).map_err(Error::Json))?,
 			inputs: complete(&self.inputs, data, &self.parameters).and_then(|v| serde_json::from_value(v).map_err(Error::Json))?
 		})

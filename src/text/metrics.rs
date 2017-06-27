@@ -249,8 +249,4 @@ impl<'a, I> Iterator for AdvanceRun<'a, I> where I: Iterator<Item=char> {
 			)
 	}
 }
-
-fn unicode_page_location(block: u32) -> String {
-	format!("textures/font/unicode_page_{}_.png", block)
-}
 // TODO: Wrap, Trim, 

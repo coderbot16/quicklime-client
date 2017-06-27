@@ -256,3 +256,10 @@ pub static PAGES: [&str; 256] = [
 	"unicode_page_fe", 
 	"unicode_page_ff",
 ];
+
+pub fn get_page(atlas: Option<u32>) -> &'static str {
+	match atlas {
+		Some(index) => PAGES[index as usize],
+		None => "ascii"
+	}
+}

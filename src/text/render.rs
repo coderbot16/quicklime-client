@@ -2,6 +2,7 @@ use super::default::character_to_default;
 use text::style::{self, Style};
 use text::metrics::{GlyphSize, Metrics};
 use render2d::{Color, Quad, Rect};
+use color::Rgb;
 
 const STRIKE_LEVEL: f32 = 5.0;
 const UNDER_LEVEL: f32 = 0.0;
@@ -10,21 +11,41 @@ const AVOID_FP_ROUNDING: f32 = 0.01;
 #[derive(Debug)]
 pub enum Command {
 	Char(DrawChar),
-	CharDefault { x: f32, y: f32, italic: bool, character: u8, size: GlyphSize },
 	Rect {x: f32, y: f32, width: f32, height: f32, color: Color }
 }
 
 impl Command {
-	fn decide(x: f32, y: f32, italic: bool, character: char, force_unicode: bool, size: GlyphSize, color: Color) -> Self {
-		let default_index = character_to_default(character);
-		
-		if let Some(default) = default_index {
-			if !force_unicode {
-				return Command::CharDefault { x: x, y: y, italic: italic, character: default, size: size }
-			}
+	fn draw_char(x: f32, y: f32, italic: bool, character: char, force_unicode: bool, size: GlyphSize, color: Color) -> Self {
+		Command::Char (DrawChar { x: x, y: y, italic: italic, character: CharKind::decide(character, force_unicode), size: size, color: color })
+	}
+}
+
+#[derive(Debug)]
+pub enum CharKind {
+	Unicode(char),
+	Default(u8)
+}
+
+impl CharKind {
+	fn decide(character: char, force_unicode: bool) -> Self {
+		match character_to_default(character) {
+			Some(default_index) if !force_unicode => CharKind::Default(default_index),
+			Some(_) | None => CharKind::Unicode(character)
 		}
-		
-		Command::Char (DrawChar { x: x, y: y, italic: italic, character: character, size: size, color: color })
+	}
+	
+	fn atlas_index(&self) -> u8 {
+		match *self {
+			CharKind::Unicode(c) => ((c as u32) % 256) as u8,
+			CharKind::Default(d) => d
+		}
+	}
+	
+	fn atlas(&self) -> Option<u32> {
+		match *self {
+			CharKind::Unicode(c) => Some((c as u32) / 256),
+			CharKind::Default(_) => None
+		}
 	}
 }
 
@@ -33,34 +54,34 @@ pub struct DrawChar {
 	pub x: f32, 
 	pub y: f32, 
 	pub italic: bool, 
-	pub character: char,
+	pub character: CharKind,
 	pub size: GlyphSize,
 	pub color: Color
 }
 
 impl DrawChar {
-	pub fn to_quad(&self, scale: (f32, f32)) -> (Quad, u32) {
+	pub fn to_quad(&self, scale: (f32, f32)) -> (Quad, Option<u32>) {
 		let left = (self.size.left() as f32) / 256.0;
 		let add = (self.size.right() as f32 + 1.0) / 256.0;
 		
 		let width = (self.size.width() as f32 / 2.0 - AVOID_FP_ROUNDING) * scale.0;
 					
 		let (x, y) = (self.x*scale.0, self.y*scale.1);
-		let character = self.character as u32;
+		let atlas_index = self.character.atlas_index();
 					
-		let tex_x = ((character % 16) as f32) / 16.0;
-		let tex_y = 1.0 - (((character % 256) / 16) as f32 + 1.0) / 16.0;
+		let tex_x = ((atlas_index % 16) as f32) / 16.0;
+		let tex_y = 1.0 - ((atlas_index / 16) as f32 + 1.0) / 16.0;
 		
 		// Vanilla doesn't AVOID_FP_ROUNDING with the minimum x position, but we encountered a bug with it and do it.
 		let mut quad = Rect::textured(
 			[x, y + 1.0 * scale.1], [x + width, y + (9.0-AVOID_FP_ROUNDING) * scale.1], 
 			self.color, 
-			[tex_x + left + AVOID_FP_ROUNDING*scale.0, tex_y], [tex_x + add, tex_y + (16.0 - 2.0*AVOID_FP_ROUNDING)/256.0]
+			[tex_x + left, tex_y], [tex_x + add, tex_y + 1.0 / 16.0 - 0.5 / 256.0]
 		).as_quad();
 		
 		quad.slant(if self.italic {scale.0} else {0.0});
 		
-		(quad, character / 256)
+		(quad, self.character.atlas())
 	}
 }
 
@@ -75,7 +96,8 @@ impl<'a> RenderingContext<'a> {
 		}
 	}
 	
-	pub fn render<'b, I>(&self, x: f32, y: f32, text: I, shadow: bool, color: Color) -> Render<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
+	/// Renders text. Don't add the position for shadow, this does it for you. The Y coordinate is the coordinate of the baseline of the text. Coordinates are on a pixel scale.
+	pub fn render<'b, I>(&self, x: f32, y: f32, text: I, shadow: bool, color: Rgb) -> Render<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
 		let mut render = Render {
 			metrics: self.metrics,
 			source: text,
@@ -91,7 +113,7 @@ impl<'a> RenderingContext<'a> {
 		render
 	}
 	
-	pub fn render_run<I>(&self, x: f32, y: f32, run: I, style: &Style, shadow: bool, color: Color) -> RenderRun<I> where I: Iterator<Item=char> {
+	fn render_run<I>(&self, x: f32, y: f32, run: I, style: &Style, shadow: bool, color: Rgb) -> RenderRun<I> where I: Iterator<Item=char> {
 		RenderRun {
 			metrics: self.metrics,
 			source: run,
@@ -113,7 +135,7 @@ pub struct Render<'a, 'b, I> where I: Iterator<Item=(&'b str, Style)> {
 	metrics: &'a Metrics,
 	shadow: bool,
 	start: (f32, f32),
-	color: Color,
+	color: Rgb,
 }
 
 // TODO: Remove code duplication from borrow checker stupidity.
@@ -193,7 +215,7 @@ pub struct RenderRun<'a, I> where I: Iterator<Item=char> {
 	style: Style,
 	shadow: bool,
 	start: (f32, f32),
-	color: Color,
+	color: Rgb,
 	
 	// Data changed from iterations
 	advance: f32,
@@ -205,7 +227,7 @@ impl<'a, I> Iterator for RenderRun<'a, I> where I: Iterator<Item=char> {
 	type Item = Option<Command>;
 	
 	fn next(&mut self) -> Option<Self::Item> {
-		let (x, y) = (self.start.0, self.start.1);
+		let (x, y) = self.start;
 		
 		if self.state == RenderState::NextChar {
 			self.state = if let Some(character) = self.source.next() {
@@ -223,17 +245,17 @@ impl<'a, I> Iterator for RenderRun<'a, I> where I: Iterator<Item=char> {
 		
 		let color = if let style::Color::Palette(pal) = self.style.color {
 			if self.shadow {
-				pal.background().to_linear()
+				pal.background()
 			} else {
-				pal.foreground().to_linear()
+				pal.foreground()
 			}
 		} else {
 			if self.shadow {
-				[self.color[0] / 4.0, self.color[1] / 4.0, self.color[2] / 4.0]
+				Rgb::new(self.color.r() / 4, self.color.g() / 4, self.color.b() / 4)
 			} else {
 				self.color
 			}
-		};
+		}.to_linear();
 		
 		Some(match self.state {
 			RenderState::Main(c, bold) => {
@@ -268,31 +290,39 @@ impl<'a, I> Iterator for RenderRun<'a, I> where I: Iterator<Item=char> {
 				
 				// TODO: Make obsfucate work in some way.
 				
-				// For shadowed text, we offset by 1 pixel forward and down. If this is unicode text, we have to offset half a default pixel, as there are 2 unicode pixels for each default pixel.
-				let offset = if self.metrics.always_unicode() {0.5} else {1.0};
-				let shadow_and_unicode = (c == '\0' || default_index.is_none() || self.metrics.always_unicode()) && self.shadow;
-				let char_offset = if shadow_and_unicode {-offset} else {0.0};
+				// We consider a one pixel offset to be 0.5 for unicode, as the characters are 16x16 there, and 1.0 for default, as the characters are 8x8 there.
+				// This differs from default to fix unicode bugs.
+				let offset = if default_index.is_none() || self.metrics.always_unicode() {0.5} else {1.0};
+				
+				// We fix MC-14502 and MC-76356 here because Mojang is too busy adding useless parrots to fix bugs that are 2 years old.
+				let (x_offset, y_offset) = match (self.shadow, bold) {
+					(false, false) => (0.0, 0.0),
+					(false, true)  => (offset, 0.0),
+					(true, false)  => (offset, -offset),      // fixed MC-14502 - hidden shadows
+					(true, true)   => (offset * 2.0, -offset) // fixed MC-76356 - doubled up bold characters
+				};
 				
 				if bold {
-					let bold_offset = offset + char_offset;
 					self.state = RenderState::NextChar;
-					
-					Some(Command::decide(x + bold_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, color))
 				} else {
 					self.state = if self.style.flags.bold() {
 						RenderState::Main(c, true)
 					} else {
 						RenderState::NextChar
 					};
-					
-					Some(Command::decide(x + char_offset, y - char_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, color))
 				}
+				
+				Some(Command::draw_char(x + x_offset, y + y_offset, self.style.flags.italic(), c, self.metrics.always_unicode(), size, color))
 			},
 			RenderState::Strike => {
+				let (x, y) = if self.shadow {(x + 1.0, y - 1.0)} else {(x, y)};
+				
 				self.state = if self.style.flags.underline() {RenderState::Under} else {RenderState::End};
 				Some(Command::Rect { x: x, y: y + STRIKE_LEVEL, width: self.advance + self.bonus, height: 1.0, color})
 			},
 			RenderState::Under => {
+				let (x, y) = if self.shadow {(x + 1.0, y - 1.0)} else {(x, y)};
+				
 				self.state = RenderState::End;
 				Some(Command::Rect { x: x - 1.0, y: y + UNDER_LEVEL, width: self.advance + self.bonus + 1.0, height: 1.0, color})
 			},

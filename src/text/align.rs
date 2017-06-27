@@ -1,6 +1,10 @@
+#[derive(Serialize, Deserialize)]
 pub enum Align {
+	#[serde(rename="left")]
 	Left,
+	#[serde(rename="center")]
 	Center,
+	#[serde(rename="right")]
 	Right
 }
 

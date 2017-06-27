@@ -2,12 +2,11 @@
 extern crate serde_derive;
 
 extern crate serde;
-#[macro_use]
 extern crate serde_json;
 extern crate glutin;
 extern crate num;
 
-mod input;
+//mod input;
 mod text;
 mod ui;
 mod render2d;
@@ -19,10 +18,11 @@ use color::Rgba;
 //mod scoreboard;
 
 use std::fs::File;
-use glutin::Event;
+use glutin::{EventsLoop, Event, WindowEvent};
 use std::io::BufReader;
 use ui::render::Context;
-use resource::atlas::{self, Texmap};
+use ui::input::InputEvent;
+use resource::atlas::Texmap;
 mod resource;
 
 use resource::atlas::TexmapBucket;
@@ -45,16 +45,24 @@ fn main() {
 	// minimum width: 320x240
 	
 	println!("Starting quicklime-client version 0.0.1");
-
-	let file = File::open("assets/minecraft/font/glyph_sizes.bin").unwrap();
-	let glyph_metrics = text::metrics::GlyphMetrics::from_file(&file).unwrap();
-	let metrics = text::metrics::Metrics::unicode(glyph_metrics);
+	println!("Loading textures...");
 	
 	let page_0_file = File::open("assets/minecraft/textures/font/unicode_page_00.png").unwrap();
 	let widgets_file = File::open("assets/minecraft/textures/gui/widgets.png").unwrap();
+	let ascii_file = File::open("assets/minecraft/textures/font/ascii.png").unwrap();
 	
-	let page_0 = image::load(BufReader::new(page_0_file), ImageFormat::PNG).expect("failed to load image").flipv().to_rgba().into_raw();
-	let widgets = image::load(BufReader::new(widgets_file), ImageFormat::PNG).expect("failed to load image").flipv().to_rgba().into_raw();
+	let page_0 = image::load(BufReader::new(page_0_file), ImageFormat::PNG).expect("failed to load image").flipv().to_rgba();
+	let widgets = image::load(BufReader::new(widgets_file), ImageFormat::PNG).expect("failed to load image").flipv().to_rgba();
+	let ascii = image::load(BufReader::new(ascii_file), ImageFormat::PNG).expect("failed to load image");
+	
+	let file = File::open("assets/minecraft/font/glyph_sizes.bin").unwrap();
+	let glyph_metrics = text::metrics::GlyphMetrics::from_file(&file).unwrap();
+	let default_metrics = text::default::DefaultMetrics::calculate(ascii.to_luma_alpha()).unwrap();
+	let metrics = text::metrics::Metrics::dual(default_metrics, glyph_metrics);
+	
+	let ascii = ascii.flipv().to_rgba();
+	
+	println!("Finished loading textures.");
 	
 	let builder = glutin::WindowBuilder::new()
         .with_title("quicklime-client [Minecraft 1.10.2]".to_string())
@@ -65,22 +73,26 @@ fn main() {
         	opengl_version: (2, 1),
         	opengles_version: (2, 1)	
         });
+        
+    let event_loop = EventsLoop::new();    
     let (window, mut device, mut factory, main_color, main_depth) =
-        gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder);
+        gfx_window_glutin::init::<ColorFormat, DepthFormat>(builder, &event_loop);
         
 	let mut last_half_size = (960.0, 540.0);
 	
 	let scale_factor = 2.0;
 	let scale = ((1.0 / last_half_size.0) * scale_factor, (1.0 / last_half_size.1) * scale_factor);
 	
-	let test_file = File::open("resources/scenes/Button.json").unwrap();
-	let test_multiple_file = File::open("resources/scenes/Main.json").unwrap();
+	println!("Loading gui...");
+	
+	let test_file = File::open("resources/scenes/button.json").unwrap();
+	let test_multiple_file = File::open("resources/scenes/main.json").unwrap();
 	
 	let test_org = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_file).unwrap();
 	let mut test_multiple = serde_json::from_reader::<File, ::ui::replace::IncompleteScene>(test_multiple_file).unwrap().complete(&HashMap::new()).unwrap();
 	
 	let mut scenes = HashMap::new();
-	scenes.insert("Button".to_owned(), test_org);
+	scenes.insert("button".to_owned(), test_org);
 	
 	test_multiple.bake_all(&scenes).unwrap();
 	
@@ -93,65 +105,44 @@ fn main() {
 	let mut context = Context::create(&mut factory, main_color.clone(), main_depth.clone());
 	context.add_texture(&mut factory, bucket.0.get("minecraft:textures/gui/widgets.png").unwrap(), &widgets);
 	context.add_texture(&mut factory, &Texmap::new("unicode_page_00".to_owned()), &page_0);
+	context.add_texture(&mut factory, &Texmap::new("ascii".to_owned()), &ascii);
 	
 	for element in test_multiple.elements.values_mut() {
 		element.default.push_to((0.0, 0.0), scale, (1.0, 1.0), &mut context, &metrics);
 	}
 	
-	'main: loop {
-		for event in window.poll_events() {
+	println!("Finished loading gui.");
+	
+	let mut done = false;
+	
+	loop {
+		event_loop.poll_events(|event| {
+			let Event::WindowEvent { event, .. } = event;
+				
 			match event {
-				Event::Closed => break 'main,
-				Event::Resized(x, y) => {println!("New window size: {}, {}", x, y); last_half_size = (x as f32 / 2.0, y as f32 / 2.0)},
-				Event::MouseMoved(x, y) => /*screen.position((x as f32) / (last_half_size.0 as f32) - 1.0, 1.0 - (y as f32) / (last_half_size.1 as f32))*/(),
-				//Event::MouseInput(state, button) => screen.mouse_click(state, button),
+				WindowEvent::Closed => done = true,
+				WindowEvent::Resized(x, y) => {println!("New window size: {}, {}", x, y); last_half_size = (x as f32 / 2.0, y as f32 / 2.0)},
+				WindowEvent::MouseMoved(x, y) => /*screen.position((x as f32) / (last_half_size.0 as f32) - 1.0, 1.0 - (y as f32) / (last_half_size.1 as f32))*/(),
+				//WindowEvent::MouseInput(state, button) => screen.mouse_click(state, button),
 				_ => println!("ev: {:?}", event)
 			}
+			
+			if let Some(input) = InputEvent::from_glutin(event, scale) {
+				test_multiple.handle_event(&input);
+			}
+		});
+		
+		if done {
+			return;
 		}
 		
-		let sky = Rgba::new(0x9b, 0xc6, 0xfe, 0xff);
-		
-		encoder.clear(&main_color, sky.to_linear());
 		encoder.clear_depth(&main_depth, 1.0);
 		context.render(&mut factory, &mut encoder);
-		
 		encoder.flush(&mut device);
-		
-		// clear depth
 		
 		window.swap_buffers().unwrap();
 		device.cleanup();
 	}
-	
-	/*use text::flat::{Component, ChatBuf, Kind, Mode};
-	use text::style::Style;
-	
-	let mut buf = ChatBuf::new();
-	
-	let hello = Component::new("Hello World!", Kind::Text, Style::new(), Mode::Level, false);
-	let space = Component::new(" ", Kind::Text, Style::new(), Mode::Deeper, false);
-	let end = Component::new("FooBarBaz", Kind::Text, Style::new(), Mode::Level, false);
-	
-	buf.push(hello.unwrap());
-	buf.push(space.unwrap());
-	buf.push(end.unwrap());
-	
-	println!("{}", ::std::mem::size_of::<ChatBuf>());
-	println!("{:?}", buf);
-	
-	println!("{:?}", ChatBuf::from_formatted("Hello World!"));
-	
-	println!("{:?}", ChatBuf::from_formatted("§4§lMinecraft §6§lServer"));
-	
-	for component in buf.components() {
-		println!("{:?}", component);
-	}
-	
-	let redstone_creations = ChatBuf::from_formatted("§1R§2e§3d§4s§5t§6o§7n§8e §9C§ar§be§ca§dt§ei§fo§1n§2s");
-	println!("{:?}", redstone_creations);
-	for component in redstone_creations.components() {
-		println!("{:?}", component);
-	}*/
 	
 	/*let name = "assets/minecraft/lang/en_US.lang";
 	let mut read = File::open(name).unwrap();

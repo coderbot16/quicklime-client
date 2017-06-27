@@ -62,17 +62,6 @@ impl StyleFlags {
 		(self.0 & OBFUSCATE) == OBFUSCATE
 	}
 	
-	/// Returns the amount of set style flags.
-	pub fn count(&self) -> u32 {
-		self.0.count_ones()
-	}
-	
-	// TODO: Op overrides
-	
-	pub fn and(&self, other: Self) -> Self {
-		StyleFlags(self.0 & other.0)
-	}
-	
 	pub fn or(&self, other: Self) -> Self {
 		StyleFlags(self.0 | other.0)
 	}

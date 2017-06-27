@@ -10,7 +10,7 @@
 				"extents": [1.0, 1.0], 
 				"z": 0.2,
 				"kind": {
-					"Rect": {
+					"rect": {
 						"texture": "button"
 					}
 				}
@@ -22,8 +22,19 @@
 					"extents": [1.0, 1.0],
 					"z": 0.2,
 					"kind": {
-						"Rect": {
+						"rect": {
 							"texture": "button_hovered"
+						}
+					}
+				},
+				{
+					"name": "inactive",
+					"center": [0.0, 0.0],
+					"extents": [1.0, 1.0],
+					"z": 0.2,
+					"kind": {
+						"rect": {
+							"texture": "button_inactive"
 						}
 					}
 				}
@@ -34,8 +45,9 @@
 				"center": [0.0, 0.0],
 				"extents": [1.0, 1.0],
 				"z": 0.1,
+				"color": {"solid": "#E0E0E0"},
 				"kind": {
-					"Text": {
+					"text": {
 						"string": "%text%",
 						"shadow": true
 					}
@@ -47,8 +59,22 @@
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
 					"z": 0.1,
+					"color": {"solid": "#FFFFA0"},
 					"kind": {
-						"Text": {
+						"text": {
+							"string": "%text%",
+							"shadow": true
+						}
+					}
+				},
+				{
+					"name": "inactive",
+					"center": [0.0, 0.0],
+					"extents": [1.0, 1.0],
+					"z": 0.1,
+					"color": {"solid": "#A0A0A0"},
+					"kind": {
+						"text": {
 							"string": "%text%",
 							"shadow": true
 						}
@@ -79,6 +105,12 @@
 						{ "event": "Leave", "action": {"SetElementState": {"element": "text", "state": "default"} } },
 						{ "event": "Leave", "action": {"SetInputState": {"input": "button", "state": "default"} } }
 					]
+				},
+				{
+					"name": "invactive",
+					"center": [0.0, 0.0],
+					"extents": [1.0, 1.0],
+					"events": []
 				}
 			]
 		}

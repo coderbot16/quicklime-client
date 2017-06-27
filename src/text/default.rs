@@ -4,7 +4,7 @@ use text::metrics::GlyphSize;
 const SPACE_WIDTH: u32 = 3;
 
 /// Characters included in `ascii.png` (previously known as `default.png`), a modified CP437.
-pub static DEFAULT_CHARS: &str = "\
+static DEFAULT_CHARS: &str = "\
 	ÀÁÂÈÊËÍÓÔÕÚßãõğİ\
 	ıŒœŞşŴŵžȇ\0\0\0\0\0\0\0\
 	\u{0020}!\"#$%&'()*+,-./\
@@ -24,7 +24,17 @@ pub static DEFAULT_CHARS: &str = "\
 	
 
 pub fn character_to_default(character: char) -> Option<u8> {
-	return DEFAULT_CHARS.find(character).map(|x| x as u8)
+	if character == '\0' {
+		return None
+	}
+	
+	for (idx, char) in DEFAULT_CHARS.chars().enumerate() {
+		if char == character {
+			return Some(idx as u8);
+		}
+	}
+	
+	None
 }
 
 #[derive(Debug)]

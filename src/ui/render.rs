@@ -1,10 +1,10 @@
-use gfx::{self, format, texture, Factory, Resources, PipelineState, Encoder, CommandBuffer};
+use gfx::{self, texture, Factory, Resources, PipelineState, Encoder, CommandBuffer};
 use gfx::traits::FactoryExt;
 use gfx::handle::{RenderTargetView, DepthStencilView};
-
-use ui::managed::ManagedBuffer;
+use image::RgbaImage;
 use resource::atlas::{Texmap, TextureSelection};
 use std::collections::HashMap;
+use ui::managed::ManagedBuffer;
 
 use ColorFormat;
 use DepthFormat;
@@ -17,7 +17,7 @@ pub struct TexturedPipe<R> where R: Resources {
 }
 
 impl<R> TexturedPipe<R> where R: Resources {
-	pub fn create<F>(factory: &mut F, image: &[u8], out: RenderTargetView<R, ColorFormat>, out_depth: DepthStencilView<R, DepthFormat>) -> Self where F: Factory<R> + FactoryExt<R> {
+	pub fn create<F>(factory: &mut F, image: &RgbaImage, out: RenderTargetView<R, ColorFormat>, out_depth: DepthStencilView<R, DepthFormat>) -> Self where F: Factory<R> + FactoryExt<R> {
 		let state = factory.create_pipeline_simple(
 	        VERTEX_SHADER_TEX.as_bytes(),
 	        FRAGMENT_SHADER_TEX.as_bytes(),
@@ -27,8 +27,8 @@ impl<R> TexturedPipe<R> where R: Resources {
 		let buffer = ManagedBuffer::new(factory);
 		
 		let (_, view) = factory.create_texture_immutable_u8::<(gfx::format::R8_G8_B8_A8, gfx::format::Srgb)>(
-			texture::Kind::D2(256, 256, texture::AaMode::Single),
-			&[image]
+			texture::Kind::D2(image.width() as u16, image.height() as u16, texture::AaMode::Single),
+			&[&image]
 		).unwrap();
 
 		let sampler = factory.create_sampler(texture::SamplerInfo::new(
@@ -135,6 +135,7 @@ impl<R> Context<R> where R: Resources {
 	pub fn extend_zone<I>(&mut self, iter: I, texture: Option<&str>) -> bool where I: IntoIterator<Item=Vertex> {
 		if let Some(texture) = texture {
 			if let Some(&(index, selection)) = self.textures.get(texture) {
+				println!("tex: {}@{}, ", texture, index);
 				Self::extend_textured(&mut self.textured[index], iter, selection);
 				
 				true
@@ -161,7 +162,7 @@ impl<R> Context<R> where R: Resources {
 		}; println!("ext {:?}", v); v}))
 	}
 	
-	pub fn add_texture<F>(&mut self, factory: &mut F, texmap: &Texmap, texture: &[u8]) where F: Factory<R> + FactoryExt<R> {
+	pub fn add_texture<F>(&mut self, factory: &mut F, texmap: &Texmap, texture: &RgbaImage) where F: Factory<R> + FactoryExt<R> {
 		let index = self.textured.len();
 		self.textured.push(TexturedPipe::create(factory, texture, self.out.clone(), self.out_depth.clone()));
 		

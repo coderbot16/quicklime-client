@@ -19,6 +19,7 @@ pub struct PlainBuf {
 }
 
 impl PlainBuf {
+	/// Creates a new, empty PlainBuf.
 	pub fn new() -> Self {
 		PlainBuf {
 			string: String::new(),
@@ -26,6 +27,7 @@ impl PlainBuf {
 		}
 	}
 	
+	/// Creates a new PlainBuf where each buffer has a certain capacity.
 	pub fn with_capacity(string: usize, descriptors: usize) -> Self {
 		PlainBuf {
 			string: String::with_capacity(string),
@@ -102,15 +104,16 @@ impl FromStr for PlainBuf {
 
 impl Display for PlainBuf {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		let mut writer = FormatWriter { target: f, current_style: Style::new(), marker: '§'};
+		let mut writer = FormatWriter::new(f);
+		let mut head = &self.string as &str;
+		
 		let mut offset = 0;
 		
 		for &(len, style) in &self.descriptors {
-			let end = offset + (len as usize);
+			let (part, rest) = head.split_at(len as usize);
+			head = rest;
 			
-			writer.write(&self.string[offset .. end], style)?;
-			
-			offset = end;
+			writer.write(part, style)?;
 		}
 		
 		Ok(())
@@ -207,9 +210,7 @@ impl FormatReader {
 				self.target.string.push_str(&string[start..start+self.current_len]);
 				self.flush();
 				
-				print!("sty {:?}", self.style);
 				self.style.process(&StyleCommand::from_code(char).unwrap_or(StyleCommand::Color(PaletteColor::White)));
-				println!("-> {:?}", self.style);
 				
 				self.expect_code = false;
 			} else if char == self.marker {
@@ -219,7 +220,7 @@ impl FormatReader {
 					start = index;
 				}
 				
-				self.current_len += 1;
+				self.current_len += utf8_len(char);
 			}
 		}
 		
@@ -232,6 +233,21 @@ impl FormatReader {
 	}
 }
 
+// TODO: Does the stdlib have a function like this?
+fn utf8_len(c: char) -> usize {
+	let c = c as u32;
+	
+	if c <= 0x7F {
+		1
+	} else if c <= 0x7FF {
+		2
+	} else if c <= 0xFFFF {
+		3
+	} else {
+		4
+	}
+}
+
 pub struct FormatWriter<'w, W> where W: fmt::Write, W: 'w {
 	target: &'w mut W,
 	current_style: Style,
@@ -239,6 +255,14 @@ pub struct FormatWriter<'w, W> where W: fmt::Write, W: 'w {
 }
 
 impl<'w, W> FormatWriter<'w, W> where W: fmt::Write {
+	pub fn new(target: &'w mut W) -> Self {
+		FormatWriter { target, current_style: Style::new(), marker: '§' }
+	}
+	
+	pub fn with_marker(target: &'w mut W, marker: char) -> Self {
+		FormatWriter { target, current_style: Style::new(), marker }
+	}
+	
 	pub fn write(&mut self, string: &str, style: Style) -> fmt::Result {
 		for command in self.current_style.transition(style) {
 			self.target.write_char(self.marker)?;

@@ -89,7 +89,7 @@ impl<'de> Deserialize<'de> for Lit {
 			}
 			
 			fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: Error {
-				v.parse::<Lit>().map_err(|e| E::custom(format!("malformed literal: {}", v)))
+				v.parse::<Lit>().map_err(|_| E::custom(format!("malformed literal: {}", v)))
 			}
 		}
 		
