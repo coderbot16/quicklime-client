@@ -64,10 +64,11 @@ impl DefaultMetrics {
 		let mut widths = [1; 256];
 		
 		'outer:
-		for (default, width) in (0..256).zip(widths.iter_mut()) {
+		for (index, width) in widths.iter_mut().enumerate() {
+			let default = index as u32;
 			let (atlas_x, atlas_y) = (default % 16, default / 16);
 			
-			for sub_x in (0..per_char.0).map(|x| per_char.0-x-1) {
+			for sub_x in (0..per_char.0).rev() {
 				for sub_y in 0..per_char.1 {
 					
 					// Check if alpha channel is nonzero

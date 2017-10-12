@@ -49,8 +49,6 @@ impl Lit {
 	}
 	
 	fn handle_term(&mut self, op: char, term: &str) -> Result<(), ParseLitError> {
-		println!("term: {}, op: {}", term, op);
-		
 		if term.ends_with("px") {
 			let term = &term[..term.len() - 2];
 			let val = term.parse::<i32>().map_err(ParseLitError::ParseInt)?;

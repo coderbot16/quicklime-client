@@ -1,4 +1,5 @@
 use glutin::{WindowEvent, ElementState, MouseScrollDelta, TouchPhase, MouseButton};
+use std::cmp::max;
 use std::path::PathBuf;
 use ui::lit::Lit;
 
@@ -26,6 +27,11 @@ impl Input {
 		// Test if the distance from the center on each axis is less than or equal to the extents.
 		(pos.0 - center.0).abs() <= extents.0 && (pos.1 - center.1).abs() <= extents.1
 	}
+	
+	/// Gets the maximum Z level of all of the states.
+	pub fn max_level(&self) -> u32 {
+		self.states.iter().map(|state| state.level).fold(0, |accum, val| max(accum, val))
+	}
 }
 
 #[derive(Serialize, Deserialize)]
@@ -33,6 +39,7 @@ pub struct InputState {
 	name: String,
 	center: (Lit, Lit),
 	extents: (Lit, Lit),
+	level: u32,
 	events: Vec<Handler>
 }
 

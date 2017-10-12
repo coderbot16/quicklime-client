@@ -8,7 +8,7 @@
 			"default": {
 				"center": [0.0, 0.0],
 				"extents": [1.0, 1.0], 
-				"z": 0.2,
+				"level": 0,
 				"kind": {
 					"rect": {
 						"texture": "button"
@@ -20,7 +20,7 @@
 					"name": "hovered",
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
-					"z": 0.2,
+					"level": 0,
 					"kind": {
 						"rect": {
 							"texture": "button_hovered"
@@ -31,7 +31,7 @@
 					"name": "inactive",
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
-					"z": 0.2,
+					"level": 0,
 					"kind": {
 						"rect": {
 							"texture": "button_inactive"
@@ -44,7 +44,7 @@
 			"default": {
 				"center": [0.0, 0.0],
 				"extents": [1.0, 1.0],
-				"z": 0.1,
+				"level": 1,
 				"color": {"solid": "#E0E0E0"},
 				"kind": {
 					"text": {
@@ -58,7 +58,7 @@
 					"name": "hovered",
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
-					"z": 0.1,
+					"level": 1,
 					"color": {"solid": "#FFFFA0"},
 					"kind": {
 						"text": {
@@ -71,7 +71,7 @@
 					"name": "inactive",
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
-					"z": 0.1,
+					"level": 1,
 					"color": {"solid": "#A0A0A0"},
 					"kind": {
 						"text": {
@@ -89,6 +89,7 @@
 				"name": "default",
 				"center": [0.0, 0.0],
 				"extents": [1.0, 1.0],
+				"level": 0,
 				"events": [
 					{ "event": "Enter", "action": {"SetElementState": {"element": "image", "state": "hovered"} } },
 					{ "event": "Enter", "action": {"SetElementState": {"element": "text", "state": "hovered"} } },
@@ -100,6 +101,7 @@
 					"name": "hovered",
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
+					"level": 0,
 					"events": [
 						{ "event": "Leave", "action": {"SetElementState": {"element": "image", "state": "default"} } },
 						{ "event": "Leave", "action": {"SetElementState": {"element": "text", "state": "default"} } },
@@ -110,6 +112,7 @@
 					"name": "invactive",
 					"center": [0.0, 0.0],
 					"extents": [1.0, 1.0],
+					"level": 0,
 					"events": []
 				}
 			]

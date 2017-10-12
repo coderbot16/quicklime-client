@@ -5,7 +5,7 @@
 			"default": {
 				"center": [0.0, 0.0],
 				"extents": [1.0, 1.0],
-				"z": 1.0,
+				"level": 0,
 				"color": {"solid": "#9bc6fe"},
 				"kind": "rect"
 			}
@@ -14,10 +14,10 @@
 			"default": {
 				"center": ["0.0 - 80px", "0.6666666667 + 2px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
-						"text": "§l@ $$ # ¼ ý",
+						"text": "§m@ $$ # ¼ ý",
 						"actions": []
 					}
 				}
@@ -27,7 +27,7 @@
 			"default": {
 				"center": ["0.0 - 80px", "0.6666666667 - 52px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.skinCustomisation",
@@ -40,7 +40,7 @@
 			"default": {
 				"center": ["0.0 + 80px", "0.6666666667 - 52px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "Super Secret Settings...",
@@ -53,7 +53,7 @@
 			"default": {
 				"center": ["0.0 - 80px", "0.6666666667 - 76px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.sounds",
@@ -66,7 +66,7 @@
 			"default": {
 				"center": ["0.0 + 80px", "0.6666666667 - 76px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.stream",
@@ -79,7 +79,7 @@
 			"default": {
 				"center": ["0.0 - 80px", "0.6666666667 - 100px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.video",
@@ -92,7 +92,7 @@
 			"default": {
 				"center": ["0.0 + 80px", "0.6666666667 - 100px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.controls",
@@ -105,7 +105,7 @@
 			"default": {
 				"center": ["0.0 - 80px", "0.6666666667 - 124px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.language",
@@ -118,7 +118,7 @@
 			"default": {
 				"center": ["0.0 + 80px", "0.6666666667 - 124px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.multiplayer.title",
@@ -131,7 +131,7 @@
 			"default": {
 				"center": ["0.0 - 80px", "0.6666666667 - 148px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.resourcepack",
@@ -144,7 +144,7 @@
 			"default": {
 				"center": ["0.0 + 80px", "0.6666666667 - 148px"],
 				"extents": ["75px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "options.snooper.view",
@@ -157,7 +157,7 @@
 			"default": {
 				"center": ["0.0", "0.6666666667 - 178px"],
 				"extents": ["100px", "10px"],
-				"z": 0.1,
+				"level": 1,
 				"kind": {
 					"button": {
 						"text": "gui.done",

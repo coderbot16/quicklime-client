@@ -135,7 +135,7 @@ impl<R> Context<R> where R: Resources {
 	pub fn extend_zone<I>(&mut self, iter: I, texture: Option<&str>) -> bool where I: IntoIterator<Item=Vertex> {
 		if let Some(texture) = texture {
 			if let Some(&(index, selection)) = self.textures.get(texture) {
-				println!("tex: {}@{}, ", texture, index);
+				//println!("tex: {}@{}, ", texture, index);
 				Self::extend_textured(&mut self.textured[index], iter, selection);
 				
 				true
@@ -150,16 +150,16 @@ impl<R> Context<R> where R: Resources {
 	}
 	
 	fn extend_textured<I>(pipe: &mut TexturedPipe<R>, iter: I, selection: TextureSelection) where I: IntoIterator<Item=Vertex> {
-		println!("sel: {:?}", selection);
+		//println!("sel: {:?}", selection);
 		
-		pipe.buffer_mut().extend(iter.into_iter().map(|v| {println!("tx: {:?}", v.tex);let v = Vertex { 
+		pipe.buffer_mut().extend(iter.into_iter().map(|v| {/*println!("tx: {:?}", v.tex);*/let v = Vertex { 
 			pos: v.pos, 
 			color: v.color, 
 			tex: [
 				selection.min[0].to_part(0.0) + v.tex[0] * selection.size[0].to_part(0.0),
 				selection.min[1].to_part(0.0) + v.tex[1] * selection.size[1].to_part(0.0)
 			]
-		}; println!("ext {:?}", v); v}))
+		}; /*println!("ext {:?}", v)*/; v}))
 	}
 	
 	pub fn add_texture<F>(&mut self, factory: &mut F, texmap: &Texmap, texture: &RgbaImage) where F: Factory<R> + FactoryExt<R> {

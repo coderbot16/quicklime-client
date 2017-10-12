@@ -107,8 +107,9 @@ fn main() {
 	context.add_texture(&mut factory, &Texmap::new("unicode_page_00".to_owned()), &page_0);
 	context.add_texture(&mut factory, &Texmap::new("ascii".to_owned()), &ascii);
 	
+	let z_stride = test_multiple.z_stride();
 	for element in test_multiple.elements.values_mut() {
-		element.default.push_to((0.0, 0.0), scale, (1.0, 1.0), &mut context, &metrics);
+		element.default.push_to((0.0, 0.0, 0.0), scale, (1.0, 1.0), z_stride, &mut context, &metrics);
 	}
 	
 	println!("Finished loading gui.");

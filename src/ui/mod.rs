@@ -10,6 +10,8 @@ use render2d::{Vertex2D, Rect};
 use resource::atlas::TextureSelection;
 use serde::de::{Error, Deserializer, Deserialize, Visitor, MapAccess};
 use serde_json::Value;
+use std::borrow::Borrow;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt;
 use text::align::Align;
@@ -53,6 +55,20 @@ impl Scene {
 			_ => ()
 		}
 	}
+	
+	pub fn max_level(&self) -> u32 {
+		max(
+			self.elements.values().map(|elem| elem.max_level()).fold(0, |accum, val| max(accum, val)),
+			self.inputs.values().map(|input| input.max_level()).fold(0, |accum, val| max(accum, val))
+		)
+	}
+	
+	/// Compute the value that is multiplied by the level to get a value between 0.0 and 1.0.
+	pub fn z_stride(&self) -> f32 {
+		println!("max_level+1: {}", self.max_level() + 1);
+		
+		1.0 / (self.max_level() + 1) as f32
+	}
 }
 
 /// An element, which contains at least one state, the default state. An element may only be in one state at any time. 
@@ -81,6 +97,14 @@ impl Element {
 			Some(idx) => &mut self.states[idx]
 		}
 	}
+	
+	/// Gets the maximum Z level of all of the states.
+	fn max_level(&self) -> u32 {
+		max(
+			self.default.level,
+			self.states.iter().map(|state| state.level).fold(0, |accum, val| max(accum, val))
+		)
+	}
 }
 
 /// A single state of an element. Contains all of the properties related to rendering of the element.
@@ -93,9 +117,9 @@ pub struct State {
 	#[serde(default = "Coloring::white")]
 	pub color: Coloring,
 	pub kind: Kind,
-	pub z: f32,
+	pub level: u32,
 	#[serde(skip_serializing, skip_deserializing)]
-	pub zone_id: Option<usize>
+	pub zone_id: Option<usize>,
 }
 
 fn default_name() -> String {
@@ -124,9 +148,17 @@ impl State {
 	}
 	
 	/// Pushes the raw vertex data representing this element to a context.
-	pub fn push_to<R>(&mut self, offset: (f32, f32), scale: (f32, f32), viewport_scale: (f32, f32), context: &mut Context<R>, metrics: &Metrics) where R: Resources {
+	pub fn push_to<R>(&mut self, offset: (f32, f32, f32), scale: (f32, f32), viewport_scale: (f32, f32), z_stride: f32, context: &mut Context<R>, metrics: &Metrics) where R: Resources {
+		let z_offset = offset.2 + (self.level as f32 * z_stride);
+		// Subtract the level in unit form from 1, to properly transform into normalized depth. In level form, 1.0 is the closest, while 0.0 is the closest in normalized depth.
+		let depth = 1.0 - z_offset;
+		println!("z: offset={}, stride={}, depth={}", z_offset, z_stride, depth);
+		assert!(depth >= 0.0, depth <= 1.0);
+		
 		match self.kind {
 			Kind::Rect (Image { ref texture, ref slice }) => {
+				println!("Rect {{ texture: {:?}, slice: {:?} }}", texture, slice);
+				
 				self.zone_id = Some(context.new_zone());
 				
 				let extents = (self.extents.0.to_part(scale.0) * viewport_scale.0, self.extents.1.to_part(scale.1) * viewport_scale.1);
@@ -149,9 +181,9 @@ impl State {
 				let vertices = 
 					tris	
 					.iter()
-					.map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, self.z], color: vertex.color, tex: vertex.tex });
+					.map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, depth], color: vertex.color, tex: vertex.tex });
 				
-				context.extend_zone(vertices, texture.as_ref().map(::std::borrow::Borrow::borrow));
+				context.extend_zone(vertices, texture.as_ref().map(Borrow::borrow));
 			},
 			Kind::Text (Text { ref string, shadow, ref align }) => {
 				println!("{:?}", string);
@@ -174,6 +206,8 @@ impl State {
 				for command in shadow_iter.chain(
 						ctxt.render(start, y_center - 4.5, string.iter(), false, color).filter_map(|x| x)
 					) {
+						
+						// TODO: Proper Z values for text with shadow.
 					println!("{:?}", command);
 					match command {
 						Command::Char( ref draw_command ) => {
@@ -184,7 +218,7 @@ impl State {
 								quad
 								.as_triangles()
 								.iter()
-								.map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, self.z], color: vertex.color, tex: vertex.tex }),
+								.map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, depth], color: vertex.color, tex: vertex.tex }),
 								Some(get_page(atlas))
 							);
 						},
@@ -199,28 +233,39 @@ impl State {
 								.as_quad()
 								.as_triangles()
 								.iter()
-								.map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, self.z], color: vertex.color, tex: vertex.tex }), None
+								.map(|vertex| Vertex { pos: [vertex.pos[0] + offset.0, vertex.pos[1] + offset.1, depth - z_stride/2.0], color: vertex.color, tex: vertex.tex }), None
 							);
 						},
 					}
 				}
 			},
 			Kind::Baked (ref mut scene) => {
+				println!("BakedScene");
+				let z_stride = z_stride * scene.z_stride();
+				let offset = (self.center.0.to_part(scale.0) + offset.0, self.center.1.to_part(scale.1) + offset.1, z_offset);
+				let viewport_scale = (viewport_scale.0 * self.extents.0.to_part(scale.0), viewport_scale.1 * self.extents.1.to_part(scale.1));
+				
+				
 				for element in scene.elements.values_mut() {
-					// TODO: maybe a better way to do this?
 					// TODO: Obey coloring.
-					// TODO: Better Z ordering.
 					
-					element.default.push_to(
-						(self.center.0.to_part(scale.0) + offset.0, self.center.1.to_part(scale.1) + offset.1), 
-						scale,
-						(viewport_scale.0 * self.extents.0.to_part(scale.0), viewport_scale.1 * self.extents.1.to_part(scale.1)), context, metrics);
+					element.default.push_to(offset, scale, viewport_scale, z_stride, context, metrics);
 				}
 			},
 			Kind::Import {..} => panic!("Tried to push an unbaked state to context, did you forget to check the return value of Scene::bake_all?"),
 			Kind::Nodraw => ()
 		}
 	}
+	
+	/*pub fn z_span(&self) -> u32 {
+		match self.kind {
+			Kind::Rect (Image { .. }) => 1,
+			Kind::Text (Text { shadow, .. }) => 2 + if shadow {2} else {0},
+			Kind::Baked (ref mut scene) => scene.z_span(),
+			Kind::Import {..} => panic!("Tried to get the width of an unbaked state, did you forget to check the return value of Scene::bake_all?"),
+			Kind::Nodraw => 0
+		}
+	}*/
 }
 
 impl<'de> Deserialize<'de> for Kind {
